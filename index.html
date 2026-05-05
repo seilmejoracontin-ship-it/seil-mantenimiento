@@ -1190,7 +1190,7 @@ function renderMechView() {
   document.getElementById('mvActive').innerHTML = proc.length ? proc.map(o=>oCard(o,true)).join('') : empty('Sin registros en proceso');
   document.getElementById('mvPend').innerHTML = pend.length ? pend.map(o=>oCard(o,false)).join('') : empty('Sin pendientes');
   document.getElementById('mvHist').innerHTML = hist.length ? hist.map(o=>`
-    <div class="hist-item" onclick="openOrderView('${o.id}',false)">
+    <div class="hist-item" onclick="openOrderReadOnly('${o.id}')">
       <span class="folio">${o.folio}</span>
       <span style="flex:1;font-size:12px;color:var(--text2)">${o.equipo} — ${o.reporte.substring(0,55)}${o.reporte.length>55?'...':''}</span>
       ${chkIndicator(o)}
@@ -1283,6 +1283,7 @@ function renderWR() {
   } else if(o.status==='En Proceso') {
     act.innerHTML = `<div style="display:flex;flex-direction:column;gap:7px">
       <button class="btn btn-s" onclick="openM('mPause')" style="border-color:#fca5a5;color:var(--red)">🔴 Pausar — espera refacción</button>
+      <button class="btn btn-g" onclick="<button class="btn btn-b btn-sm" onclick="showQR('${o.folio}','Mantenimiento','${o.tecnico}')">📷 Subir evidencias</button>
       <button class="btn btn-g" onclick="closeOrder()">✅ Cerrar trabajo</button>
     </div>`;
   } else if(o.status==='Pausa Refacción') {
@@ -1755,7 +1756,7 @@ function renderBitacora() {
           ${bitRows?`<div style="margin-top:6px"><span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Bitácora de avances</span>${bitRows}</div>`:''}
           ${refRows}
           <div style="margin-top:8px">
-            <button class="btn btn-s btn-xs" onclick="openOrderBit('${ev.id}')">📋 Ver bitácora completa</button>
+            <button class="btn btn-s btn-xs" onclick="openOrderReadOnly('${ev.id}')">📋 Ver bitácora completa</button>
           </div>
         </div>
       </div>`;
@@ -2358,7 +2359,7 @@ function openOrderBit(orderId) {
 // GOOGLE SHEETS INTEGRATION
 // ════════════════════════════════════════════════
 const SHEET_ID = '1g1hTJpLkWhy3fyKL219QPN9RsTX3TIGysNMmDkLkers';
-const APPS_SCRIPT_DEFAULT = 'https://script.google.com/macros/s/AKfycbyFPbs5Smud7ok6izOpKOviz8l561NDukvdOJ6QAAL4b78jL03AYuS0vCmCPlg-70cxIw/exec';
+const APPS_SCRIPT_DEFAULT = 'https://script.google.com/macros/s/AKfycbyafXLrK2CSgJO45FbdMRRtMwmFDUUUf2QKEqcb0MlcE2-pSxKhMTwIznwLiHSVJDcmfw/exec';
 const API_KEY  = 'AIzaSyD5WjkD2JXlvqN_ChaPh8vzQoYKxQGO52A';
 const SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets/'+SHEET_ID;
 
@@ -2579,6 +2580,40 @@ function drawQR(text) {
   }
 }
 
+
+
+function openOrderReadOnly(id) {
+  const o = orders.find(x=>x.id===id);
+  if(!o) return;
+  currentOrder = o;
+  // Set back button to return to mechanic view
+  document.getElementById('wrBack').onclick = () => {
+    renderMechView();
+    ss('mechView', curTech ? curTech.name : '');
+  };
+  renderWR();
+  ss('workRecord', `Registro — ${o.folio}`);
+  // Lock ALL fields regardless of status
+  ['wrEntry','wrComents','wrCosto','wrHoro','wrKm','rNom','rCnt','rCod','rProv'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.disabled = true;
+  });
+  const addBit = document.getElementById('addBitBtn');
+  const addRef = document.getElementById('addRefBtn');
+  if(addBit) addBit.disabled = true;
+  if(addRef) addRef.disabled = true;
+  // Show read-only notice
+  document.getElementById('lockedMsg').style.display = 'flex';
+  document.getElementById('lockedMsg').innerHTML = '👁 Modo lectura — solo el Jefe de Taller puede editar registros cerrados.';
+  // Hide action buttons - replace with read-only message
+  const act = document.getElementById('wrActions');
+  if(act) act.innerHTML = `
+    <div class="alert a-ok">✅ Registro cerrado — ${fmtDF(o.closedAt||'')}</div>
+    <div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">
+      <button class="btn btn-b btn-sm" onclick="genOrderPDF()">📄 PDF</button>
+      <button class="btn btn-g btn-sm" onclick="showQR('${o.folio}','Mantenimiento','${o.tecnico}')">📷 Evidencias</button>
+    </div>`;
+}
 
 // INIT
 renderHomeStats();
