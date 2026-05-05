@@ -2502,18 +2502,7 @@ async function syncToSheets(what) {
   }
 }
 
-async function syncFromSheets() {
-  if(!confirm('¿Importar datos desde Google Sheets? Esto reemplazará los datos locales actuales.')) return;
-  setSyncStatus('Importando desde Sheets...','syncing');
-  sheetsLog('Importando ordenes desde Sheets...');
-  try {
-    const r = await fetch(`${SHEETS_BASE}/values/Ordenes!A2:Z5000?key=${API_KEY}`);
-    const d = await r.json();
-    if(d.error){ sheetsLog('Error: '+d.error.message,'err'); setSyncStatus('Error importando','err'); return; }
-    sheetsLog('Importacion exitosa: '+(d.values||[]).length+' filas leidas','ok');
-    setSyncStatus('Datos importados correctamente','ok');
-  } catch(e) { sheetsLog('Error: '+e.message,'err'); setSyncStatus('Error de red','err'); }
-}
+
 
 function updateSyncBadge() {
   const last = localStorage.getItem('seil_last_sync');
@@ -2615,12 +2604,67 @@ function openOrderReadOnly(id) {
     </div>`;
 }
 
+
+// ════════════════════════════════════════════════
+// LOAD FROM SHEETS ON STARTUP
+// ════════════════════════════════════════════════
+async function loadFromSheetsOnStartup() {
+  const scriptUrl = loadScriptUrl();
+  if(!scriptUrl) return;
+  // Only auto-load if localStorage is empty (new device)
+  if(orders.length > 0) return;
+  sheetsLog && sheetsLog('Cargando datos desde Sheets...','info');
+  try {
+    const r = await fetch(scriptUrl + '?action=read', {method:'GET'});
+    const d = await r.json();
+    if(d.error) { console.log('Sheets load error:', d.error); return; }
+    if(d.orders && d.orders.length) {
+      orders = d.orders;
+      sv();
+      console.log('Loaded', orders.length, 'orders from Sheets');
+    }
+    if(d.checklists && d.checklists.length) {
+      checklists = d.checklists;
+      sv();
+      console.log('Loaded', checklists.length, 'checklists from Sheets');
+    }
+    renderHomeStats();
+    checkUrgent();
+  } catch(e) { console.log('Sheets load error:', e.message); }
+}
+
+async function syncFromSheets() {
+  const scriptUrl = loadScriptUrl();
+  if(!scriptUrl){ alert('Configura la URL del Apps Script'); return; }
+  setSyncStatus('Importando desde Sheets...','syncing');
+  sheetsLog('Importando todos los datos desde Sheets...');
+  try {
+    const r = await fetch(scriptUrl + '?action=read');
+    const d = await r.json();
+    if(d.error){ sheetsLog('Error: '+d.error,'err'); setSyncStatus('Error','err'); return; }
+    let changed = false;
+    if(d.orders && d.orders.length){
+      orders = d.orders; changed = true;
+      sheetsLog('Órdenes importadas: '+orders.length,'ok');
+    }
+    if(d.checklists && d.checklists.length){
+      checklists = d.checklists; changed = true;
+      sheetsLog('Checklists importados: '+checklists.length,'ok');
+    }
+    if(changed){ sv(); renderHomeStats(); checkUrgent(); }
+    setSyncStatus('Datos importados correctamente','ok');
+    localStorage.setItem('seil_last_sync', new Date().toISOString());
+    updateSyncBadge();
+  } catch(e){ sheetsLog('Error: '+e.message,'err'); setSyncStatus('Error de red','err'); }
+}
+
 // INIT
 renderHomeStats();
 checkUrgent();
 initOffline();
 registerSW();
 updateSyncBadge();
+loadFromSheetsOnStartup();
 
 // ── CHANGE LOG ────────────────────────────────────────────────
 function addLog(type,folio,desc){
