@@ -1393,7 +1393,7 @@ function resumeOrder() {
 function closeOrder() {
   if(!confirm('¿Cerrar el registro? Se requerirá completar el checklist de liberación.')) return;
   currentOrder.status='Cerrado - Checklist'; currentOrder.closedAt=new Date().toISOString();
-  clearInterval(timerIv); sv(); renderWR();
+  clearInterval(timerIv); sv(); renderWR(); _autoSync();
 }
 function openCloseChk() {
   const tmpl=getChkTemplate(currentOrder.equipo);
@@ -1580,6 +1580,7 @@ function saveChk() {
     if(o){ o.status='Cerrado'; o.linkedChk=d.folio; }
   }
   sv();
+  _autoSync();
   alert(`✅ ${d.folio} guardado`);
   setTimeout(()=>showQR(d.folio, d.linkedOrder?'Checklist':'Checklist', d.tecnico),400);
   // RETURN: if linked to order and came from mech → go back to mech view
@@ -2466,7 +2467,7 @@ async function syncToSheets(what) {
       ['Folio','EquipoID','TipoChecklist','Tecnico','Fecha','Horometro','Km',
        'ItemsOK','Fallas','Observaciones','OrdenVinculada']
     ];
-    checklists.forEach(c=>{
+    checklists.forEach((c,ci)=>{
       const fails=Object.values(c.items||{}).filter(v=>v==='fail').length;
       const oks=Object.values(c.items||{}).filter(v=>v==='ok').length;
       const obsArr=[];
@@ -2480,8 +2481,10 @@ async function syncToSheets(what) {
           if(obs||val==='fail') obsArr.push(sec.sec+' - '+item+(obs?' : '+obs:'')+(val==='fail'?' [FALLA]':''));
         }));
       }catch(e){}
+      // Include id for round-trip
+      const cid = c.id || String(ci);
       rows2.push([c.folio,c.equipId,c.type||'',c.tecnico,c.date||'',c.horo||'',c.km||'',
-        oks,fails,obsArr.join('; '),c.linkedFolio||'']);
+        oks,fails,obsArr.join('; '),c.linkedFolio||'',cid]);
     });
     const r2 = await writeSheet('Checklists', rows2);
     if(!r2) ok=false;
@@ -2551,22 +2554,31 @@ function openFormDirect() {
 
 function drawQR(text) {
   const el = document.getElementById('qrCanvas');
+  if(!el) return;
   el.innerHTML = '';
+  // Try QRCode library
   if(typeof QRCode !== 'undefined') {
-    new QRCode(el, {
-      text: text,
-      width: 194,
-      height: 194,
-      colorDark: '#0d2b5e',
-      colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.M
-    });
-  } else {
-    // Fallback: show link as text if library not loaded yet
-    el.innerHTML = '<div style="padding:16px;font-size:10px;word-break:break-all;color:#0d2b5e;text-align:center">'+text+'</div>';
-    // Retry after library loads
-    setTimeout(()=>drawQR(text), 1500);
+    try {
+      new QRCode(el, {text:text, width:190, height:190, colorDark:'#0d2b5e', colorLight:'#ffffff', correctLevel:QRCode.CorrectLevel.M});
+      return;
+    } catch(e) {}
   }
+  // Fallback: Google Charts QR (online) or text link (offline)
+  const img = document.createElement('img');
+  img.style.cssText = 'width:190px;height:190px;display:block;margin:0 auto';
+  img.src = 'https://chart.googleapis.com/chart?chs=190x190&cht=qr&chl='+encodeURIComponent(text)+'&choe=UTF-8';
+  img.onerror = () => {
+    el.innerHTML = '<div style="padding:12px;font-size:9px;word-break:break-all;color:#0d2b5e;text-align:center;background:#f0f4ff;border-radius:8px">'+
+      '<div style="font-size:12px;font-weight:700;margin-bottom:8px">📷 Link del formulario:</div>'+text+'</div>';
+  };
+  el.appendChild(img);
+  // Retry with library if it loads later
+  setTimeout(()=>{
+    if(typeof QRCode !== 'undefined' && el.querySelector('img')) {
+      el.innerHTML='';
+      try{new QRCode(el,{text,width:190,height:190,colorDark:'#0d2b5e',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});}catch(e){}
+    }
+  }, 2000);
 }
 
 
@@ -2727,7 +2739,28 @@ checkUrgent();
 initOffline();
 registerSW();
 updateSyncBadge();
-loadFromSheetsOnStartup();
+setTimeout(loadFromSheetsOnStartup, 800); // Delay to let UI render first
+// Restore last screen on page reload
+(function restoreScreen(){
+  const last = sessionStorage.getItem('seil_last_screen');
+  if(last === 'jefeDash') {
+    // Don't auto-restore jefe - requires password
+    return;
+  }
+  // For other screens, home is safest default after reload
+})();
+// Save current screen on navigation for restore
+const _origSS = ss;
+
+function _autoSync() {
+  // Background sync - silent, no UI
+  const scriptUrl = loadScriptUrl();
+  if(!scriptUrl) return;
+  setTimeout(async ()=>{
+    try { await syncToSheets('all'); } catch(e){}
+  }, 1500);
+}
+
 
 // ── CHANGE LOG ────────────────────────────────────────────────
 function addLog(type,folio,desc){
