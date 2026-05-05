@@ -1295,8 +1295,8 @@ function renderWR() {
       <div style="display:flex;gap:6px;margin-top:6px"><button class="btn btn-s btn-sm" onclick="openM('mPosp')">✎ Actualizar motivo</button><button class="btn btn-r" onclick="startOrder()">▶ Iniciar ahora</button></div>`;
   } else if(o.status==='En Proceso') {
     act.innerHTML = `<div style="display:flex;flex-direction:column;gap:7px">
-      <button class="btn btn-s" onclick="openM('mPause')" style="border-color:#fca5a5;color:var(--red)">🔴 Pausar — espera refacción</button>
-      <button class="btn btn-g" onclick="<button class="btn btn-b btn-sm" onclick="showQR('${o.folio}','Mantenimiento','${o.tecnico}')">📷 Subir evidencias</button>
+      <button class="btn btn-s" onclick="openM(\'mPause\')" style="border-color:#fca5a5;color:var(--red)">🔴 Pausar — espera refacción</button>
+      <button class="btn btn-b btn-sm" onclick="openPhotos(\'${o.folio}\')">📷 Subir evidencias</button>
       <button class="btn btn-g" onclick="closeOrder()">✅ Cerrar trabajo</button>
     </div>`;
   } else if(o.status==='Pausa Refacción') {
@@ -2814,27 +2814,43 @@ async function uploadPhotos() {
     const file = _selectedPhotos[i];
     try {
       const b64 = await fileToBase64(file);
-      const ext = file.name.split('.').pop().toLowerCase() || 'jpg';
+      const ext = (file.name.split('.').pop()||'jpg').toLowerCase();
       const mime = file.type || 'image/jpeg';
-      const payload = {
+      const fileName = _photoFolio + '_' + (i+1) + '.' + ext;
+      const payload = JSON.stringify({
         action: 'uploadPhoto',
         folio: _photoFolio,
         folderId: DRIVE_FOLDER_ID,
-        fileName: _photoFolio + '_' + (i+1) + '.' + ext,
+        fileName: fileName,
         mimeType: mime,
         data: b64
-      };
-      const r = await fetch(scriptUrl + '?action=uploadPhoto&folio=' + encodeURIComponent(_photoFolio) +
-        '&folderId=' + DRIVE_FOLDER_ID + '&fileName=' + encodeURIComponent(_photoFolio+'_'+(i+1)+'.'+ext) +
-        '&mimeType=' + encodeURIComponent(mime) + '&data=' + encodeURIComponent(b64));
-      const d = await r.json();
-      if(d.folderUrl) driveUrl = d.folderUrl;
+      });
+      try {
+        const r = await fetch(scriptUrl, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: payload
+        });
+        const d = await r.json();
+        if(d.folderUrl) driveUrl = d.folderUrl;
+      } catch(fetchErr) {
+        // Fallback: form POST
+        await new Promise(resolve => {
+          const form = document.createElement('form');
+          form.method = 'POST'; form.action = scriptUrl; form.target = '_blank';
+          const inp = document.createElement('input');
+          inp.type = 'hidden'; inp.name = 'payload'; inp.value = payload;
+          form.appendChild(inp); document.body.appendChild(form);
+          form.submit();
+          setTimeout(() => { try{document.body.removeChild(form);}catch(e){} resolve(); }, 3000);
+        });
+      }
       uploaded++;
       progBar.style.width = (uploaded/_selectedPhotos.length*100) + '%';
       status.textContent = 'Subiendo ' + uploaded + ' de ' + _selectedPhotos.length + '...';
     } catch(e) { console.log('Upload error:', e); }
   }
-  // Save drive URL to order/checklist
+    // Save drive URL to order/checklist
   if(driveUrl) {
     const ord = orders.find(o=>o.folio===_photoFolio);
     const chk = checklists.find(c=>c.folio===_photoFolio);
