@@ -368,6 +368,19 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .sheets-ok{background:#dcfce7;color:var(--green)}
 .sheets-err{background:#fee2e2;color:var(--red)}
 .sheets-sync{background:#dbeafe;color:var(--blue)}
+
+/* PHOTO UPLOAD */
+.photo-drop{border:2px dashed var(--border);border-radius:var(--radius);padding:20px;text-align:center;cursor:pointer;transition:.2s;background:var(--bg)}
+.photo-drop:hover,.photo-drop.dragover{border-color:var(--blue);background:var(--bg2)}
+.photo-drop input{display:none}
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;margin-top:10px}
+.photo-thumb{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;background:var(--bg)}
+.photo-thumb img{width:100%;height:100%;object-fit:cover}
+.photo-thumb .del-ph{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.photo-link{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--blue);text-decoration:none;padding:4px 8px;background:var(--bg2);border-radius:99px;margin-top:4px}
+.photo-link:hover{background:var(--bg)}
+.upload-prog{height:4px;background:var(--border);border-radius:2px;margin-top:8px;overflow:hidden;display:none}
+.upload-prog-bar{height:100%;background:var(--blue);border-radius:2px;transition:width .3s}
 </style>
 </head>
 <body>
@@ -1582,7 +1595,7 @@ function saveChk() {
   sv();
   _autoSync();
   alert(`✅ ${d.folio} guardado`);
-  setTimeout(()=>showQR(d.folio, d.linkedOrder?'Checklist':'Checklist', d.tecnico),400);
+  setTimeout(()=>openPhotos(d.folio),400);
   // RETURN: if linked to order and came from mech → go back to mech view
   if(d.linkedOrder && currentTech) {
     renderMechView(); ss('mechView',`Carga — ${currentTech.name}`);
@@ -2733,6 +2746,129 @@ async function syncFromSheets() {
   } catch(e){ sheetsLog('Error: '+e.message,'err'); setSyncStatus('Error de red','err'); }
 }
 
+
+// ════════════════════════════════════════════════
+// PHOTO UPLOAD TO DRIVE
+// ════════════════════════════════════════════════
+const DRIVE_FOLDER_ID = '1wdbWOoZBkLGCVQ9fyPZiSssMmUlRiUL6';
+let _photoFolio = '';
+let _selectedPhotos = [];
+
+function openPhotos(folio) {
+  _photoFolio = folio;
+  _selectedPhotos = [];
+  document.getElementById('photoFolioLabel').textContent = 'Folio: ' + folio;
+  document.getElementById('photoGrid').innerHTML = '';
+  document.getElementById('uploadBtn').disabled = true;
+  document.getElementById('photoUploadStatus').textContent = '';
+  document.getElementById('photoDriveLink').innerHTML = '';
+  document.getElementById('uploadProg').style.display = 'none';
+  // Check if already has photos
+  const order = orders.find(o=>o.folio===folio) || checklists.find(c=>c.folio===folio);
+  if(order && order.driveUrl) {
+    document.getElementById('photoDriveLink').innerHTML =
+      `<a class="photo-link" href="${order.driveUrl}" target="_blank">📁 Ver fotos existentes en Drive</a>`;
+  }
+  openM('mPhotos');
+}
+
+function handlePhotoSelect(files) {
+  const MAX = 10;
+  const arr = Array.from(files).slice(0, MAX);
+  _selectedPhotos = arr;
+  const grid = document.getElementById('photoGrid');
+  grid.innerHTML = '';
+  arr.forEach((f, i) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const div = document.createElement('div');
+      div.className = 'photo-thumb';
+      div.innerHTML = `<img src="${e.target.result}"><button class="del-ph" onclick="removePhoto(${i})">×</button>`;
+      grid.appendChild(div);
+    };
+    reader.readAsDataURL(f);
+  });
+  document.getElementById('uploadBtn').disabled = arr.length === 0;
+  document.getElementById('photoUploadStatus').textContent = arr.length + ' foto' + (arr.length>1?'s':'') + ' seleccionada' + (arr.length>1?'s':'');
+}
+
+function removePhoto(idx) {
+  _selectedPhotos.splice(idx, 1);
+  handlePhotoSelect(_selectedPhotos);
+}
+
+async function uploadPhotos() {
+  if(!_selectedPhotos.length) return;
+  const scriptUrl = loadScriptUrl();
+  if(!scriptUrl) { alert('Configura la URL del Apps Script'); return; }
+  const btn = document.getElementById('uploadBtn');
+  const status = document.getElementById('photoUploadStatus');
+  const prog = document.getElementById('uploadProg');
+  const progBar = document.getElementById('uploadProgBar');
+  btn.disabled = true;
+  prog.style.display = 'block';
+  status.textContent = 'Subiendo fotos...';
+  let uploaded = 0;
+  let driveUrl = '';
+  for(let i = 0; i < _selectedPhotos.length; i++) {
+    const file = _selectedPhotos[i];
+    try {
+      const b64 = await fileToBase64(file);
+      const ext = file.name.split('.').pop().toLowerCase() || 'jpg';
+      const mime = file.type || 'image/jpeg';
+      const payload = {
+        action: 'uploadPhoto',
+        folio: _photoFolio,
+        folderId: DRIVE_FOLDER_ID,
+        fileName: _photoFolio + '_' + (i+1) + '.' + ext,
+        mimeType: mime,
+        data: b64
+      };
+      const r = await fetch(scriptUrl + '?action=uploadPhoto&folio=' + encodeURIComponent(_photoFolio) +
+        '&folderId=' + DRIVE_FOLDER_ID + '&fileName=' + encodeURIComponent(_photoFolio+'_'+(i+1)+'.'+ext) +
+        '&mimeType=' + encodeURIComponent(mime) + '&data=' + encodeURIComponent(b64));
+      const d = await r.json();
+      if(d.folderUrl) driveUrl = d.folderUrl;
+      uploaded++;
+      progBar.style.width = (uploaded/_selectedPhotos.length*100) + '%';
+      status.textContent = 'Subiendo ' + uploaded + ' de ' + _selectedPhotos.length + '...';
+    } catch(e) { console.log('Upload error:', e); }
+  }
+  // Save drive URL to order/checklist
+  if(driveUrl) {
+    const ord = orders.find(o=>o.folio===_photoFolio);
+    const chk = checklists.find(c=>c.folio===_photoFolio);
+    if(ord) { ord.driveUrl = driveUrl; sv(); }
+    if(chk) { chk.driveUrl = driveUrl; sv(); }
+    document.getElementById('photoDriveLink').innerHTML =
+      `<a class="photo-link" href="${driveUrl}" target="_blank">📁 Ver fotos en Drive</a>`;
+  }
+  status.textContent = '✅ ' + uploaded + ' foto' + (uploaded>1?'s':'') + ' subida' + (uploaded>1?'s':'') + ' correctamente';
+  btn.disabled = false;
+  _autoSync();
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Drag and drop
+document.addEventListener('DOMContentLoaded', () => {
+  const drop = document.getElementById('photoDrop');
+  if(!drop) return;
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('dragover'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('dragover');
+    handlePhotoSelect(e.dataTransfer.files);
+  });
+});
+
 // INIT
 renderHomeStats();
 checkUrgent();
@@ -2922,6 +3058,29 @@ function registerSW(){
 
 </script>
 
+
+
+<!-- PHOTO UPLOAD MODAL -->
+<div class="moverlay" id="mPhotos">
+  <div class="mbox" style="width:500px;max-width:95vw">
+    <div class="mt">📷 Evidencias fotográficas</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px" id="photoFolioLabel"></div>
+    <div class="photo-drop" id="photoDrop" onclick="document.getElementById('photoInput').click()">
+      <input type="file" id="photoInput" multiple accept="image/*" onchange="handlePhotoSelect(this.files)">
+      <div style="font-size:28px;margin-bottom:6px">📸</div>
+      <div style="font-weight:600;font-size:13px">Toca para seleccionar fotos</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">O arrastra las fotos aquí · Máx. 10 fotos · JPG, PNG</div>
+    </div>
+    <div class="photo-grid" id="photoGrid"></div>
+    <div class="upload-prog" id="uploadProg"><div class="upload-prog-bar" id="uploadProgBar" style="width:0%"></div></div>
+    <div id="photoUploadStatus" style="font-size:12px;color:var(--text2);margin-top:8px;text-align:center"></div>
+    <div id="photoDriveLink" style="margin-top:8px;text-align:center"></div>
+    <div class="mfooter">
+      <button class="btn btn-s" onclick="closeM('mPhotos')">Cerrar</button>
+      <button class="btn btn-p" id="uploadBtn" onclick="uploadPhotos()" disabled>⬆ Subir fotos</button>
+    </div>
+  </div>
+</div>
 
 <!-- QR EVIDENCIAS MODAL -->
 <div class="moverlay" id="mQR">
