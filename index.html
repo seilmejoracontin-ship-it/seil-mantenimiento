@@ -2407,14 +2407,26 @@ async function writeSheet(sheetName, rows) {
   if(!scriptUrl) return false;
   try {
     sheetsLog(`${sheetName}: enviando ${rows.length-1} registros...`);
-    const payload = JSON.stringify({sheet: sheetName, rows: rows});
-    const r = await fetch(scriptUrl, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: payload
-    });
-    const d = await r.json();
-    if(d.error) { sheetsLog('Error: '+d.error,'err'); return false; }
+    // Use GET with no-cors - works from any origin including GitHub Pages
+    const CHUNK = 40;
+    const header = rows[0];
+    const dataRows = rows.slice(1);
+    const chunks = dataRows.length ?
+      Array.from({length:Math.ceil(dataRows.length/CHUNK)},(_,i)=>dataRows.slice(i*CHUNK,(i+1)*CHUNK))
+      : [[]];
+    for(let ci=0; ci<chunks.length; ci++){
+      const payload = {
+        sheet: sheetName,
+        rows: ci===0 ? [header,...chunks[ci]] : chunks[ci],
+        append: ci > 0
+      };
+      const encoded = encodeURIComponent(JSON.stringify(payload));
+      await fetch(scriptUrl + '?data=' + encoded, {
+        method: 'GET',
+        mode: 'no-cors'
+      });
+      await new Promise(r=>setTimeout(r,1000));
+    }
     sheetsLog(`${sheetName}: ${rows.length-1} registros escritos ✓`,'ok');
     return true;
   } catch(e) { sheetsLog('Error en '+sheetName+': '+e.message,'err'); return false; }
