@@ -2481,9 +2481,10 @@ async function writeSheet(sheetName, rows) {
     const CHUNK = 40;
     const header = rows[0];
     const dataRows = rows.slice(1);
-    const chunks = dataRows.length ?
-      Array.from({length:Math.ceil(dataRows.length/CHUNK)},(_,i)=>dataRows.slice(i*CHUNK,(i+1)*CHUNK))
-      : [[]];
+    if(!dataRows.length) {
+      sheetsLog(sheetName+': sin datos de filas','warn'); return true;
+    }
+    const chunks = Array.from({length:Math.ceil(dataRows.length/CHUNK)},(_,i)=>dataRows.slice(i*CHUNK,(i+1)*CHUNK));
     for(let ci=0; ci<chunks.length; ci++){
       const payload = {
         sheet: sheetName,
@@ -2548,7 +2549,7 @@ async function syncToSheets(what) {
     await ensureSheet('Checklists');
     const rows2 = [
       ['Folio','EquipoID','TipoChecklist','Tecnico','Fecha','Horometro','Km',
-       'ItemsOK','Fallas','Observaciones','OrdenVinculada']
+       'ItemsOK','Fallas','Observaciones','OrdenVinculada','id']
     ];
     checklists.forEach((c,ci)=>{
       const fails=Object.values(c.items||{}).filter(v=>v==='fail').length;
