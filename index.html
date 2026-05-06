@@ -2839,18 +2839,20 @@ function openDriveFolder(folio) {
 function openPhotos(folio) {
   _photoFolio = folio;
   _selectedPhotos = [];
+  const record = orders.find(o=>o.folio===folio) || checklists.find(c=>c.folio===folio);
+  // If already has Drive folder, open it directly
+  if(record && record.driveUrl) {
+    window.open(record.driveUrl, '_blank');
+    return;
+  }
+  // Otherwise show upload modal
   document.getElementById('photoFolioLabel').textContent = 'Folio: ' + folio;
   document.getElementById('photoGrid').innerHTML = '';
   document.getElementById('uploadBtn').disabled = true;
   document.getElementById('photoUploadStatus').textContent = '';
-  document.getElementById('photoDriveLink').innerHTML = '';
+  document.getElementById('photoDriveLink').innerHTML =
+    `<a class="photo-link" href="https://drive.google.com/drive/folders/1wdbWOoZBkLGCVQ9fyPZiSssMmUlRiUL6" target="_blank">📁 Ver carpeta general de evidencias</a>`;
   document.getElementById('uploadProg').style.display = 'none';
-  // Check if already has photos
-  const order = orders.find(o=>o.folio===folio) || checklists.find(c=>c.folio===folio);
-  if(order && order.driveUrl) {
-    document.getElementById('photoDriveLink').innerHTML =
-      `<a class="photo-link" href="${order.driveUrl}" target="_blank">📁 Ver fotos existentes en Drive</a>`;
-  }
   openM('mPhotos');
 }
 
