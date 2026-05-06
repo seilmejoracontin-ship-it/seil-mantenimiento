@@ -2381,8 +2381,8 @@ function importData(ev) {
   r.onload=e=>{
     try{
       const d=JSON.parse(e.target.result);
-      if(d.orders&&d.checklists){
-        orders=d.orders; checklists=d.checklists; sv();
+      const _o=d.orders||d.ordenes||[];const _c=d.checklists||[];if(_o.length||_c.length){
+        orders=_o.map(mapOrderFromSheet).filter(o=>o.folio); checklists=_c.map(mapChkFromSheet).filter(c=>c.folio); sv();
         alert(`✅ Importado: ${orders.length} órdenes, ${checklists.length} checklists`);
         closeM('mExport'); renderJefeDash();
       } else alert('Archivo inválido');
@@ -2777,12 +2777,14 @@ async function loadFromSheetsOnStartup() {
     const d = await r.json();
     if(d.error) return;
     let changed = false;
-    if(d.orders && Array.isArray(d.orders) && d.orders.length) {
-      orders = d.orders.map(mapOrderFromSheet).filter(o=>o.folio);
+    const rawOrders = d.orders||d.ordenes||[];
+    if(rawOrders.length) {
+      orders = rawOrders.map(mapOrderFromSheet).filter(o=>o.folio);
       changed = true;
     }
-    if(d.checklists && Array.isArray(d.checklists) && d.checklists.length) {
-      checklists = d.checklists.map(mapChkFromSheet).filter(c=>c.folio);
+    const rawChks = d.checklists||d.checklists||[];
+    if(rawChks.length) {
+      checklists = rawChks.map(mapChkFromSheet).filter(c=>c.folio);
       changed = true;
     }
     if(changed) { sv(); renderHomeStats(); checkUrgent(); }
@@ -2800,12 +2802,12 @@ async function syncFromSheets() {
     if(d.error){ sheetsLog('Error: '+d.error,'err'); setSyncStatus('Error','err'); return; }
     let changed = false;
     if(d.orders && Array.isArray(d.orders) && d.orders.length){
-      orders = d.orders.map(mapOrderFromSheet).filter(o=>o.folio);
+      orders = rawOrders.map(mapOrderFromSheet).filter(o=>o.folio);
       changed = true;
       sheetsLog('Órdenes importadas: '+orders.length,'ok');
     }
     if(d.checklists && Array.isArray(d.checklists) && d.checklists.length){
-      checklists = d.checklists.map(mapChkFromSheet).filter(c=>c.folio);
+      checklists = rawChks.map(mapChkFromSheet).filter(c=>c.folio);
       changed = true;
       sheetsLog('Checklists importados: '+checklists.length,'ok');
     }
