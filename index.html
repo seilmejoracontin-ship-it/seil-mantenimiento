@@ -1125,6 +1125,129 @@ function goBitacora() {
   initBitacora();
   ss('bitacoraMaestra','Bitácora Maestra');
 }
+function calcWorkHours(startISO, endISO, pauseMs) {
+  // SEIL schedule: Mon 8-17, Tue-Fri 8-18, Sat 8-12
+  if(!startISO || !endISO) return null;
+  const start = new Date(startISO);
+  const end = new Date(endISO);
+  let workMs = 0;
+  let cur = new Date(start);
+  while(cur < end) {
+    const day = cur.getDay(); // 0=Sun,1=Mon...6=Sat
+    const h = cur.getHours() + cur.getMinutes()/60;
+    let dayStart, dayEnd;
+    if(day === 0) { cur.setDate(cur.getDate()+1); cur.setHours(8,0,0,0); continue; } // Sunday skip
+    if(day === 1) { dayStart=8; dayEnd=17; } // Monday
+    else if(day === 6) { dayStart=8; dayEnd=12; } // Saturday
+    else { dayStart=8; dayEnd=18; } // Tue-Fri
+    if(h < dayStart) { cur.setHours(dayStart,0,0,0); continue; }
+    if(h >= dayEnd) { cur.setDate(cur.getDate()+1); cur.setHours(8,0,0,0); continue; }
+    // Count ms until end of work day or end time
+    const nextBreak = new Date(cur);
+    nextBreak.setHours(dayEnd,0,0,0);
+    const countUntil = end < nextBreak ? end : nextBreak;
+    workMs += countUntil - cur;
+    cur = new Date(countUntil);
+    if(cur < end && cur.getHours() >= dayEnd) {
+      cur.setDate(cur.getDate()+1); cur.setHours(8,0,0,0);
+    }
+  }
+  workMs = Math.max(0, workMs - (pauseMs||0));
+  return workMs / 3600000;
+}
+
+function renderDash() {
+  const t=orders.length;
+  const a=orders.filter(o=>o.status==='En Proceso').length;
+  const corr=orders.filter(o=>o.tipo==='Correctivo').length;
+  const prev=orders.filter(o=>o.tipo==='Preventivo').length;
+  const cer=orders.filter(o=>['Cerrado','Cerrado - Checklist'].includes(o.status)).length;
+  document.getElementById('dMetrics').innerHTML=
+    mc('Total',t,'c-navy')+mc('En proceso',a,'c-blue')+mc('Correctivos',corr,'c-acc')+mc('Preventivos',prev,'c-grn');
+  // Correctivos vs Preventivos bar
+  const tot2=corr+prev||1;
+  document.getElementById('dTipos').innerHTML=`
+    <div style="margin-top:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span>Correctivos</span><span>${corr}</span></div>
+      <div style="background:var(--border);border-radius:4px;height:8px;margin-bottom:10px">
+        <div style="background:var(--red);height:8px;border-radius:4px;width:${(corr/tot2*100).toFixed(0)}%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span>Preventivos</span><span>${prev}</span></div>
+      <div style="background:var(--border);border-radius:4px;height:8px">
+        <div style="background:var(--green);height:8px;border-radius:4px;width:${(prev/tot2*100).toFixed(0)}%"></div></div>
+    </div>`;
+  // By mechanic
+  const mecNames = ['Iram Cisneros','Erick Gutierrez','Andres Mora','Jose Covarrubias'];
+  const mecShort = ['Iram','Erick','Andres','Jose'];
+  const mecMax = Math.max(...mecNames.map(n=>orders.filter(o=>o.tecnico===n).length),1);
+  document.getElementById('dMecs').innerHTML='<div style="margin-top:8px">'+
+    mecNames.map((n,i)=>{
+      const cnt=orders.filter(o=>o.tecnico===n).length;
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:12px;width:48px;color:var(--text2)">${mecShort[i]}</span>
+        <div style="flex:1;background:var(--border);border-radius:4px;height:8px">
+          <div style="background:var(--blue);height:8px;border-radius:4px;width:${(cnt/mecMax*100).toFixed(0)}%"></div></div>
+        <span style="font-size:12px;width:16px;text-align:right">${cnt}</span></div>`;
+    }).join('')+'</div>';
+  // Priorities
+  const prios = ['Alta','Media','Normal'];
+  const prioColors = ['c-acc','c-blue','c-grn'];
+  const prioMax = Math.max(...prios.map(p=>orders.filter(o=>o.prioridad===p&&o.status!=='Cerrado').length),1);
+  document.getElementById('dPrio').innerHTML='<div style="margin-top:8px">'+
+    prios.map((p,i)=>{
+      const cnt=orders.filter(o=>o.prioridad===p&&o.status!=='Cerrado').length;
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:12px;width:48px;color:var(--text2)">${p}</span>
+        <div style="flex:1;background:var(--border);border-radius:4px;height:8px">
+          <div style="background:var(--${prioColors[i].replace('c-','')});height:8px;border-radius:4px;width:${(cnt/prioMax*100).toFixed(0)}%"></div></div>
+        <span style="font-size:12px;width:16px;text-align:right">${cnt}</span></div>`;
+    }).join('')+'</div>';
+  // Work times using business hours
+  const closedOrds = orders.filter(o=>o.closedAt&&o.startedAt);
+  const avgResp = closedOrds.length ?
+    (closedOrds.reduce((s,o)=>{
+      const h=calcWorkHours(o.createdAt,o.startedAt,0);
+      return s+(h||0);
+    },0)/closedOrds.length).toFixed(1) : '—';
+  const avgWork = closedOrds.length ?
+    (closedOrds.reduce((s,o)=>{
+      const h=calcWorkHours(o.startedAt,o.closedAt,o.totalPauseMs||0);
+      return s+(h||0);
+    },0)/closedOrds.length).toFixed(1) : '—';
+  document.getElementById('dTimes').innerHTML=`
+    <div style="margin-top:8px">
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:13px;color:var(--text2)">T. respuesta promedio</span>
+        <span style="font-weight:700;color:var(--blue)">${avgResp} hrs</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:13px;color:var(--text2)">T. trabajo promedio</span>
+        <span style="font-weight:700;color:var(--grn)">${avgWork} hrs</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0">
+        <span style="font-size:13px;color:var(--text2)">Órdenes cerradas</span>
+        <span style="font-weight:700">${cer}</span></div>
+      <div style="font-size:10px;color:var(--text3);margin-top:6px">⏱ Tiempo laboral: Lun 8-17 · Mar-Vie 8-18 · Sáb 8-12</div>
+    </div>`;
+  // Checklists section
+  const chkTotal=checklists.length;
+  const chkFallas=checklists.filter(c=>(c.failTotal||0)>0).length;
+  document.getElementById('dChkMetrics').innerHTML=
+    mc('Total checklists',chkTotal,'c-navy')+mc('Con fallas',chkFallas,'c-acc');
+  // Top equipment
+  const eqCounts = {};
+  orders.forEach(o=>{ eqCounts[o.equipo]=(eqCounts[o.equipo]||0)+1; });
+  const topEq = Object.entries(eqCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const topMax = topEq[0]?.[1]||1;
+  document.getElementById('dChkEq').innerHTML = topEq.length ?
+    '<div style="margin-top:8px">'+topEq.map(([eq,cnt])=>`
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:12px;width:72px;color:var(--text2);overflow:hidden;text-overflow:ellipsis">${eq}</span>
+        <div style="flex:1;background:var(--border);border-radius:4px;height:8px">
+          <div style="background:var(--acc);height:8px;border-radius:4px;width:${(cnt/topMax*100).toFixed(0)}%"></div></div>
+        <span style="font-size:12px;width:16px;text-align:right">${cnt}</span></div>`).join('')+'</div>'
+    : '<div style="color:var(--text3);font-size:12px;margin-top:8px">Sin datos</div>';
+}
+
 function goDash() { renderDash(); ss('dashboard','Dashboard'); }
 
 function chkJPass() {
