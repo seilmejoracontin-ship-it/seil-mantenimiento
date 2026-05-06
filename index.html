@@ -357,12 +357,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
 .sync-dot.spin{background:var(--blue);animation:pulse 1s infinite}
 .sync-dot.err{background:var(--red)}
-/* QR MODAL */
-.qr-modal-body{text-align:center;padding:16px}
-.qr-img{width:200px;height:200px;border:3px solid var(--navy);border-radius:8px;margin:0 auto 12px}
-.qr-folio{font-family:monospace;font-size:16px;font-weight:700;color:var(--red);margin-bottom:6px}
-.qr-inst{font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:12px}
-.qr-link{font-size:10px;color:var(--text3);word-break:break-all}
+
 /* SHEETS STATUS */
 .sheets-status{display:flex;align-items:center;gap:6px;font-size:11px;padding:4px 10px;border-radius:99px;font-weight:700}
 .sheets-ok{background:#dcfce7;color:var(--green)}
@@ -994,7 +989,7 @@ const CHK_GRUA = [
   {sec:'Frenos',items:['De Servicio','De Estacionamiento','Frenos']},
   {sec:'Lubricación',items:['Extensiones de pluma','Tornamesa','Pernos de pistones','Barra cardan','Varillaje de dirección']},
   {sec:'Sistema Eléctrico',items:['Batería identificada','Voltaje de carga','Sujetador de batería','Switch encendido','Switch luces','Luz trasera','Luz delantera','Luz reversa','Torreta','Claxon','Alarma reversa','Display de carga','Microswitch freno mano']},
-  {sec:'Seguridad',items:['Cinturón de seguridad','Base para extintor','Extintor','Botón paro emergencia','Limit switches']},
+  {sec:'Seguridad',items:['Cinturón de seguridad','Base para extintor','Botón paro emergencia','Limit switches']},
   {sec:'Llantas',items:['Traseras','Delanteras','Tuercas / Birlos']},
   {sec:'Fugas',items:['Pistones hidráulicos','Motor','Mangueras','Transmisión','Depósito hidráulico','Combustible','Carrete winch']},
   {sec:'Accesorios',items:['Pernos extensión','Candados "R" pernos','Polea','Contrapeso / gancho']},
@@ -1017,7 +1012,7 @@ const CHK_TRACTO = [
   {sec:'Frenos',items:['Presión de aire sistema','Frenos de servicio','Frenos de motor','Cámara de frenos visible']},
   {sec:'Sistema Eléctrico',items:['Batería','Luces delanteras','Luces traseras','Direccionales','Torreta / luces alerta','Claxon','Alarma reversa']},
   {sec:'Llantas y ruedas',items:['Llantas delanteras (presión y estado)','Llantas traseras (presión y estado)','Birlos / tuercas apretadas']},
-  {sec:'Cabina',items:['Cinturón de seguridad','Extintor','Botiquín','Documentos en regla (tarjeta, seguro)','Espejos ajustados','Limpiadores parabrisas']},
+  {sec:'Cabina',items:['Cinturón de seguridad','Botiquín','Documentos en regla (tarjeta, seguro)','Espejos ajustados','Limpiadores parabrisas']},
   {sec:'Estética / General',items:['Enganche / quinta rueda','Luces de enganche operativas','Escape sin fugas','N. Económico visible']},
 ];
 const CHK_VEH = [
@@ -1025,7 +1020,7 @@ const CHK_VEH = [
   {sec:'Frenos',items:['Frenos de servicio','Freno de mano']},
   {sec:'Sistema Eléctrico',items:['Batería','Luces delanteras','Luces traseras','Direccionales','Luces de emergencia','Claxon']},
   {sec:'Llantas',items:['Delantera izquierda','Delantera derecha','Trasera izquierda','Trasera derecha','Llanta de refacción']},
-  {sec:'Cabina y documentos',items:['Cinturón de seguridad (todos)','Extintor','Botiquín','Tarjeta de circulación','Póliza de seguro','Verificación vigente','Espejos ajustados','Limpiadores parabrisas']},
+  {sec:'Cabina y documentos',items:['Cinturón de seguridad (todos)','Botiquín','Tarjeta de circulación','Póliza de seguro','Verificación vigente','Espejos ajustados','Limpiadores parabrisas']},
   {sec:'Estética',items:['N. Económico visible','Sin daños sin reportar']},
 ];
 
@@ -1378,7 +1373,7 @@ function renderWR() {
     act.innerHTML = `<div class="alert a-ok">✅ Registro cerrado y liberado<br><small style="opacity:.7">${fmtDF(o.closedAt)}</small></div>
     <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
       <button class="btn btn-b btn-sm" onclick="genOrderPDF('${o.id}')">📄 PDF</button>
-      <button class="btn btn-g btn-sm" onclick="showQR('${o.folio}','Mantenimiento')">📷 Evidencias</button>
+      <button class="btn btn-g btn-sm" onclick="openPhotos(\'${o.folio}\')" style="">📷 Subir fotos</button>
       <button class="btn btn-s btn-sm" onclick="openEditOrder('${o.id}')">✏️ Editar (Jefe)</button>
     </div>`;
   }
@@ -1492,6 +1487,7 @@ function addBit() {
   currentOrder.bitacora=currentOrder.bitacora||[];
   currentOrder.bitacora.push({ts:new Date().toISOString(),autor:currentTech?currentTech.name:'Técnico',text:txt});
   document.getElementById('wrEntry').value=''; sv(); renderBit();
+  _autoSync();
 }
 function saveDraft() { sv(); alert('Borrador guardado ✓'); }
 function saveComs() { currentOrder.comentarios=document.getElementById('wrComents').value; sv(); }
@@ -1886,269 +1882,6 @@ function renderBitacora() {
   }).join('');
 }
 
-function genBitPDF(){
-  const eqId=document.getElementById('bmEquipo').value;
-  const tipo=document.getElementById('bmTipo').value;
-  if(!eqId){alert('Selecciona un equipo primero');return;}
-  try{
-  const {jsPDF}=window.jspdf;
-  if(!jsPDF){alert('PDF no disponible. Verifica conexion a internet.');return;}
-  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-  const W=297,m=12;
-  let y=0;
-  // Header
-  doc.setFillColor(13,43,94);doc.rect(0,0,W,22,'F');
-  try{doc.addImage('https://seilmejoracontin-ship-it.github.io/seil-mantenimiento/seil_logo.png','JPEG',m,1,18,18);}catch(e){}
-  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(14);
-  doc.text('SEIL Rigging & Millwright',35,9);
-  doc.setFont('helvetica','normal');doc.setFontSize(9);
-  doc.text('Bitacora de Mantenimiento -- '+eqId,35,16);
-  doc.setFontSize(9);doc.text(fmtD(new Date().toISOString()),W-m,9,{align:'right'});
-  doc.setFillColor(192,57,43);doc.rect(0,22,W,2,'F');
-  y=30;
-  // Equipment info
-  const eq=EQUIPOS.find(e=>e.id===eqId);
-  if(eq){
-    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(30,30,30);
-    doc.text('Equipo: '+eqId+' - '+eq.tipo+' - '+eq.marca+' '+eq.modelo,m,y);y+=6;
-  }
-  // Table for checklists  
-  if(!tipo||tipo==='Checklist'){
-    const chkList=checklists.filter(c=>c.equipId===eqId).sort((a,b)=>new Date(b.date)-new Date(a.date));
-    if(chkList.length){
-      // Table header
-      doc.setFillColor(13,43,94);doc.rect(m,y,W-2*m,7,'F');
-      doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(8);
-      const cols=[m,m+22,m+50,m+72,m+90,m+105,m+120];
-      ['Folio','Equipo ID','Tipo','Fecha','Horom.','OK','Fallas'].forEach((h,i)=>doc.text(h,cols[i]+1,y+5));
-      doc.text('Observaciones',m+125,y+5);
-      y+=9;
-      doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
-      chkList.forEach((c,ri)=>{
-        // Collect observations
-        const obsArr=[];
-        const tmpl=getChkTemplate(c.equipId);
-        tmpl.secs.forEach(sec=>{
-          sec.items.forEach((item,i)=>{
-            const key=sec.sec+'__'+i;
-            const val=c.items?.[key];
-            const kid='obs_'+key.replace(/[^a-z0-9]/gi,'_');
-            const obsVal=c.obs?.[kid]||'';
-            if(obsVal||val==='fail'){
-              const secClean=clean(sec.sec);
-              const itemClean=clean(item);
-              const obsClean=clean(obsVal);
-              obsArr.push(secClean+' - '+itemClean+(obsVal?' : '+obsClean:'')+(val==='fail'?' [FALLA]':''));
-            }
-          });
-        });
-        const obsText=obsArr.join('; ');
-        const obsLines=doc.splitTextToSize(obsText||'—',W-2*m-125);
-        const rowH=Math.max(7,obsLines.length*4+4);
-        if(y+rowH>190){doc.addPage();y=15;}
-        if(ri%2===0){doc.setFillColor(248,249,252);doc.rect(m,y,W-2*m,rowH,'F');}
-        doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(192,57,43);
-        doc.text(c.folio,cols[0]+1,y+4);
-        doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
-        doc.text(c.equipId,cols[1]+1,y+4);
-        doc.text(clean(c.type||''),cols[2]+1,y+4);
-        doc.text(fmtD(c.date),cols[3]+1,y+4);
-        doc.text(c.horo?String(c.horo):'—',cols[4]+1,y+4);
-        const oks=Object.values(c.items||{}).filter(v=>v==='ok').length;
-        const fails=Object.values(c.items||{}).filter(v=>v==='fail').length;
-        doc.setTextColor(22,120,74);doc.text(String(oks),cols[5]+1,y+4);
-        doc.setTextColor(fails>0?192:30,fails>0?57:30,fails>0?43:30);
-        doc.text(String(fails),cols[6]+1,y+4);
-        doc.setTextColor(30,30,30);doc.setFontSize(7);
-        obsLines.forEach((l,li)=>doc.text(l,m+125,y+4+(li*4)));
-        doc.setDrawColor(220,220,220);doc.rect(m,y,W-2*m,rowH,'S');
-        y+=rowH;
-      });
-      y+=6;
-    }
-  }
-  // Maintenance orders section
-  if(!tipo||tipo==='Mantenimiento'){
-    const ordList=orders.filter(o=>o.equipo===eqId).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-    if(ordList.length){
-      if(y>160){doc.addPage();y=15;}
-      doc.setFillColor(13,43,94);doc.rect(m,y,W-2*m,7,'F');
-      doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(8);
-      doc.text('ORDENES DE MANTENIMIENTO',m+2,y+5);y+=9;
-      ordList.forEach((o,ri)=>{
-        const bitSummary=o.bitacora&&o.bitacora.length?
-          o.bitacora.filter(b=>!b.sistema).map(b=>clean(b.autor)+': '+clean(b.text)).join(' | '):'Sin bitacora';
-        const lines=doc.splitTextToSize(clean(o.reporte)+' | '+bitSummary,W-2*m-90);
-        const rowH=Math.max(7,lines.length*4+4);
-        if(y+rowH>190){doc.addPage();y=15;}
-        if(ri%2===0){doc.setFillColor(248,249,252);doc.rect(m,y,W-2*m,rowH,'F');}
-        doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(13,43,94);
-        doc.text(o.folio,m+1,y+4);
-        doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
-        doc.text(clean(o.tipo||''),m+22,y+4);
-        doc.text(fmtD(o.createdAt),m+42,y+4);
-        doc.text(clean(o.tecnico.split(' ')[0]),m+60,y+4);
-        doc.text(o.horometro&&o.horometro!=='—'?String(o.horometro):'—',m+80,y+4);
-        lines.forEach((l,li)=>doc.text(l,m+92,y+4+(li*4)));
-        doc.setDrawColor(220,220,220);doc.rect(m,y,W-2*m,rowH,'S');
-        y+=rowH;
-      });
-    }
-  }
-  // Footer
-  doc.setFillColor(13,43,94);doc.rect(0,198,W,7,'F');
-  doc.setTextColor(255,255,255);doc.setFontSize(7);
-  doc.text('SEIL Rigging & Millwright - Bitacora Maestra - '+eqId,m,203);
-  doc.text('Generado: '+fmtDF(new Date().toISOString()),W-m,203,{align:'right'});
-  doc.save('Bitacora_'+eqId+'_'+new Date().toISOString().split('T')[0]+'.pdf');
-  }catch(e){alert('Error PDF: '+e.message);}
-}
-
-
-// ════════════════════════════════════════════════
-// DASHBOARD
-// ════════════════════════════════════════════════
-function renderDash() {
-  const t=orders.length, a=orders.filter(o=>o.status==='En Proceso').length;
-  const corr=orders.filter(o=>o.tipo==='Correctivo').length;
-  const prev=orders.filter(o=>o.tipo==='Preventivo').length;
-  const cer=orders.filter(o=>o.status==='Cerrado').length;
-  document.getElementById('dMetrics').innerHTML=mc('Total',t,'c-navy')+mc('En proceso',a,'c-blue')+mc('Correctivos',corr,'c-acc')+mc('Preventivos',prev,'c-grn');
-  const mxT=Math.max(corr,prev,1);
-  document.getElementById('dTipos').innerHTML=br('Correctivos',corr,mxT,'var(--red)')+br('Preventivos',prev,mxT,'var(--green)');
-  const mxM=Math.max(...TECNICOS.map(t2=>orders.filter(o=>o.tecnico===t2.name).length),1);
-  document.getElementById('dMecs').innerHTML=TECNICOS.map(t2=>{
-    const c=orders.filter(o=>o.tecnico===t2.name).length;
-    return br(t2.name.split(' ')[0],c,mxM,t2.color);
-  }).join('');
-  const prios=['Alta','Media','Normal','Baja'], pc={Alta:'var(--red)',Media:'var(--yellow)',Normal:'var(--blue)',Baja:'var(--green)'};
-  const mxP=Math.max(...prios.map(p=>orders.filter(o=>o.prioridad===p&&o.status!=='Cerrado').length),1);
-  document.getElementById('dPrio').innerHTML=prios.map(p=>br(p,orders.filter(o=>o.prioridad===p&&o.status!=='Cerrado').length,mxP,pc[p])).join('');
-  const avgR=avg(orders.filter(o=>o.startedAt&&o.createdAt).map(o=>(new Date(o.startedAt)-new Date(o.createdAt))/3600000));
-  const avgC=avg(orders.filter(o=>o.closedAt&&o.startedAt).map(o=>(new Date(o.closedAt)-new Date(o.startedAt)-(o.totalPauseMs||0))/3600000));
-  const avgP=avg(orders.filter(o=>o.totalPauseMs).map(o=>o.totalPauseMs/3600000));
-  document.getElementById('dTimes').innerHTML=`<table style="width:100%;font-size:12px">
-    <tr><td style="color:var(--text3);padding:5px 0;font-weight:600">T. respuesta</td><td style="text-align:right;color:var(--blue);font-weight:800">${avgR?avgR.toFixed(1)+' hrs':'—'}</td></tr>
-    <tr><td style="color:var(--text3);padding:5px 0;font-weight:600">T. cierre</td><td style="text-align:right;color:var(--green);font-weight:800">${avgC?avgC.toFixed(1)+' hrs':'—'}</td></tr>
-    <tr><td style="color:var(--text3);padding:5px 0;font-weight:600">T. muerto</td><td style="text-align:right;color:var(--yellow);font-weight:800">${avgP?avgP.toFixed(1)+' hrs':'—'}</td></tr>
-    <tr><td style="color:var(--text3);padding:5px 0;font-weight:600">Órdenes cerradas</td><td style="text-align:right;color:var(--navy);font-weight:800">${cer}</td></tr>
-  </table>`;
-  // Checklists metrics
-  const ct=checklists.length, cf=checklists.filter(c=>c.failTotal>0).length;
-  const lastChkDays=checklists.length?Math.floor((Date.now()-new Date(checklists.sort((a,b)=>new Date(b.date)-new Date(a.date))[0].date))/86400000):null;
-  document.getElementById('dChkMetrics').innerHTML=
-    mc('Total checklists',ct,'c-navy')+mc('Con fallas',cf,'c-acc')+mc('Sin fallas',ct-cf,'c-grn')+mc('Último',lastChkDays!==null?lastChkDays+'d':'—','c-blue','hace');
-  const mxCm=Math.max(...TECNICOS.map(t2=>checklists.filter(c=>c.tecnico===t2.name).length),1);
-  document.getElementById('dChkMecs').innerHTML=TECNICOS.map(t2=>{
-    const c=checklists.filter(ch=>ch.tecnico===t2.name).length;
-    return br(t2.name.split(' ')[0],c,mxCm,t2.color);
-  }).join('');
-  // Last inspection per equipment
-  const eqChks=EQUIPOS.map(e=>{
-    const last=checklists.filter(c=>c.equipId===e.id).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
-    return {id:e.id,last:last?fmtD(last.date):null,days:last?Math.floor((Date.now()-new Date(last.date))/86400000):null};
-  }).filter(e=>e.last).sort((a,b)=>b.days-a.days);
-  document.getElementById('dChkEq').innerHTML=eqChks.length?`<table class="tbl">
-    <thead><tr><th>Equipo</th><th>Última inspección</th><th>Días</th></tr></thead>
-    <tbody>${eqChks.map(e=>`<tr>
-      <td style="font-weight:700">${e.id}</td>
-      <td style="font-size:11px">${e.last}</td>
-      <td><span class="badge ${e.days>30?'b-alta':e.days>14?'b-media':'b-clos'}">${e.days}d</span></td>
-    </tr>`).join('')}</tbody>
-  </table>`:empty('Sin checklists registrados');
-}
-
-// ════════════════════════════════════════════════
-// PDF GENERATION
-// ════════════════════════════════════════════════
-function genOrderPDF() {
-  const o=currentOrder; if(!o) return;
-  try{
-  const {jsPDF}=window.jspdf;
-  if(!jsPDF){alert('PDF no disponible. Verifica conexion a internet.');return;}
-  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const W=210,m=14;
-  let y=0;
-  doc.setFillColor(13,43,94);doc.rect(0,0,W,28,'F');
-  try{doc.addImage('https://seilmejoracontin-ship-it.github.io/seil-mantenimiento/seil_logo.png','JPEG',m,3,22,22);}catch(e){}
-  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(13);
-  doc.text('SEIL Rigging & Millwright',40,11);
-  doc.setFont('helvetica','normal');doc.setFontSize(8);
-  doc.text('Orden de Mantenimiento',40,18);
-  doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(255,200,200);
-  doc.text(o.folio,W-m,10,{align:'right'});
-  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(200,220,255);
-  doc.text(clean(o.equipo)+' — '+clean(o.tipo),W-m,18,{align:'right'});
-  doc.setFillColor(192,57,43);doc.rect(0,28,W,2,'F');
-  y=38;
-  const inf=[['Tecnico',clean(o.tecnico)],['Prioridad',clean(o.prioridad)],
-    ['Detectado en',clean(o.detectado||'—')],['Estado',clean(o.status)],
-    ['Horometro',o.horometro&&o.horometro!=='—'?String(o.horometro)+' hrs':'—'],
-    ['Kilometraje',o.km?String(o.km)+' km':'—'],
-    ['T. Respuesta',o.startedAt&&o.createdAt?((new Date(o.startedAt)-new Date(o.createdAt))/3600000).toFixed(1)+' hrs':'—'],
-    ['T. Trabajo',o.closedAt&&o.startedAt?((new Date(o.closedAt)-new Date(o.startedAt)-(o.totalPauseMs||0))/3600000).toFixed(1)+' hrs':'—'],
-    ['T. Muerto',o.totalPauseMs?((o.totalPauseMs)/3600000).toFixed(1)+' hrs':'—'],
-    ['Costo estimado',o.costo?'$'+String(o.costo):'—']];
-  inf.forEach(([l,v],i)=>{
-    const col=i%2===0?m:m+(W-2*m)/2;
-    if(i%2===0&&i>0)y+=6;
-    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(30,30,30);
-    doc.text(l+':',col,y);
-    doc.setFont('helvetica','normal');doc.text(String(v),col+30,y);
-  });
-  y+=10;
-  doc.setFillColor(230,240,255);doc.rect(m,y,W-2*m,7,'F');
-  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(13,43,94);
-  doc.text('REPORTE DE FALLA / DESCRIPCION',m+2,y+5);y+=9;
-  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(30,30,30);
-  doc.splitTextToSize(clean(o.reporte||''),W-2*m).forEach(l=>{if(y>278){doc.addPage();y=15;}doc.text(l,m,y);y+=4;});
-  y+=5;
-  if(o.bitacora&&o.bitacora.filter(b=>!b.sistema).length){
-    if(y>255){doc.addPage();y=15;}
-    doc.setFillColor(13,43,94);doc.rect(m,y,W-2*m,7,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(255,255,255);
-    doc.text('BITACORA DE AVANCES',m+2,y+5);y+=9;
-    o.bitacora.filter(b=>!b.sistema).forEach(b=>{
-      if(y>272){doc.addPage();y=15;}
-      doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,100,100);
-      doc.text(fmtDF(b.ts)+' — '+clean(b.autor)+(b.editedAt?' (editado)':''),m,y);y+=4;
-      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(30,30,30);
-      doc.splitTextToSize(clean(b.text),W-2*m-3).forEach(l=>{if(y>278){doc.addPage();y=15;}doc.text(l,m+3,y);y+=4;});
-      y+=2;
-    });y+=3;
-  }
-  if(o.refacciones&&o.refacciones.length){
-    if(y>248){doc.addPage();y=15;}
-    doc.setFillColor(13,43,94);doc.rect(m,y,W-2*m,7,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(255,255,255);
-    doc.text('REFACCIONES Y MATERIALES',m+2,y+5);y+=9;
-    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,100,100);
-    ['Refaccion','Cant.','Codigo','Proveedor'].forEach((h,i)=>doc.text(h,[m,m+65,m+80,m+115][i],y));
-    y+=4;doc.setDrawColor(200,200,200);doc.line(m,y,W-m,y);y+=3;
-    doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
-    o.refacciones.forEach(r=>{
-      if(y>278){doc.addPage();y=15;}
-      doc.text(clean(r.nombre||'').substring(0,30),m,y);
-      doc.text(String(r.cant||1),m+65,y);
-      doc.text(clean(r.codigo||'—').substring(0,12),m+80,y);
-      doc.text(clean(r.proveedor||'—').substring(0,18),m+115,y);y+=5;
-    });y+=3;
-  }
-  if(o.comentarios){
-    if(y>258){doc.addPage();y=15;}
-    doc.setFillColor(255,248,220);doc.rect(m,y,W-2*m,7,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(120,80,0);
-    doc.text('COMENTARIOS IMPORTANTES',m+2,y+5);y+=9;
-    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(30,30,30);
-    doc.splitTextToSize(clean(o.comentarios),W-2*m).forEach(l=>{if(y>278){doc.addPage();y=15;}doc.text(l,m,y);y+=4;});
-  }
-  doc.setFillColor(13,43,94);doc.rect(0,287,W,10,'F');
-  doc.setTextColor(255,255,255);doc.setFontSize(7);
-  doc.text('SEIL Rigging & Millwright - Sistema de Mantenimiento V3',m,293);
-  doc.text(o.folio,W-m,293,{align:'right'});
-  doc.save(o.folio+'.pdf');
-  }catch(e){alert('Error PDF: '+e.message);}
-}
 
 function genChkPDF() {
   const folio=document.getElementById('chkDetailFolio').textContent;
@@ -2242,6 +1975,95 @@ function _genChkPDFData(chk) {
 function clean(s){
   if(!s)return '';
   return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x20-\x7E]/g,'');
+}
+
+function genOrderPDF() {
+  const o=currentOrder; if(!o) return;
+  try{
+  const {jsPDF}=window.jspdf;
+  if(!jsPDF){alert('PDF no disponible. Verifica conexion a internet.');return;}
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210,m=14;
+  let y=0;
+  doc.setFillColor(13,43,94);doc.rect(0,0,W,28,'F');
+  try{doc.addImage('https://seilmejoracontin-ship-it.github.io/seil-mantenimiento/seil_logo.png','JPEG',m,3,22,22);}catch(e){}
+  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(13);
+  doc.text('SEIL Rigging & Millwright',40,11);
+  doc.setFont('helvetica','normal');doc.setFontSize(8);
+  doc.text('Orden de Mantenimiento',40,18);
+  doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(255,200,200);
+  doc.text(o.folio,W-m,10,{align:'right'});
+  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(200,220,255);
+  doc.text(clean(o.equipo)+' — '+clean(o.tipo),W-m,18,{align:'right'});
+  doc.setFillColor(192,57,43);doc.rect(0,28,W,2,'F');
+  y=38;
+  const inf=[['Tecnico',clean(o.tecnico)],['Prioridad',clean(o.prioridad)],
+    ['Detectado en',clean(o.detectado||'—')],['Estado',clean(o.status)],
+    ['Horometro',o.horometro&&o.horometro!=='—'?String(o.horometro)+' hrs':'—'],
+    ['Kilometraje',o.km?String(o.km)+' km':'—'],
+    ['T. Respuesta',o.startedAt&&o.createdAt?((new Date(o.startedAt)-new Date(o.createdAt))/3600000).toFixed(1)+' hrs':'—'],
+    ['T. Trabajo',o.closedAt&&o.startedAt?((new Date(o.closedAt)-new Date(o.startedAt)-(o.totalPauseMs||0))/3600000).toFixed(1)+' hrs':'—'],
+    ['T. Muerto',o.totalPauseMs?((o.totalPauseMs)/3600000).toFixed(1)+' hrs':'—'],
+    ['Costo estimado',o.costo?'$'+String(o.costo):'—']];
+  inf.forEach(([l,v],i)=>{
+    const col=i%2===0?m:m+(W-2*m)/2;
+    if(i%2===0&&i>0)y+=6;
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(30,30,30);
+    doc.text(l+':',col,y);
+    doc.setFont('helvetica','normal');doc.text(String(v),col+30,y);
+  });
+  y+=10;
+  doc.setFillColor(230,240,255);doc.rect(m,y,W-2*m,7,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(13,43,94);
+  doc.text('REPORTE DE FALLA / DESCRIPCION',m+2,y+5);y+=9;
+  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(30,30,30);
+  doc.splitTextToSize(clean(o.reporte||''),W-2*m).forEach(l=>{if(y>278){doc.addPage();y=15;}doc.text(l,m,y);y+=4;});
+  y+=5;
+  if(o.bitacora&&o.bitacora.filter(b=>!b.sistema).length){
+    if(y>255){doc.addPage();y=15;}
+    doc.setFillColor(13,43,94);doc.rect(m,y,W-2*m,7,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(255,255,255);
+    doc.text('BITACORA DE AVANCES',m+2,y+5);y+=9;
+    o.bitacora.filter(b=>!b.sistema).forEach(b=>{
+      if(y>272){doc.addPage();y=15;}
+      doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,100,100);
+      doc.text(fmtDF(b.ts)+' — '+clean(b.autor)+(b.editedAt?' (editado)':''),m,y);y+=4;
+      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(30,30,30);
+      doc.splitTextToSize(clean(b.text),W-2*m-3).forEach(l=>{if(y>278){doc.addPage();y=15;}doc.text(l,m+3,y);y+=4;});
+      y+=2;
+    });y+=3;
+  }
+  if(o.refacciones&&o.refacciones.length){
+    if(y>248){doc.addPage();y=15;}
+    doc.setFillColor(13,43,94);doc.rect(m,y,W-2*m,7,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(255,255,255);
+    doc.text('REFACCIONES Y MATERIALES',m+2,y+5);y+=9;
+    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,100,100);
+    ['Refaccion','Cant.','Codigo','Proveedor'].forEach((h,i)=>doc.text(h,[m,m+65,m+80,m+115][i],y));
+    y+=4;doc.setDrawColor(200,200,200);doc.line(m,y,W-m,y);y+=3;
+    doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
+    o.refacciones.forEach(r=>{
+      if(y>278){doc.addPage();y=15;}
+      doc.text(clean(r.nombre||'').substring(0,30),m,y);
+      doc.text(String(r.cant||1),m+65,y);
+      doc.text(clean(r.codigo||'—').substring(0,12),m+80,y);
+      doc.text(clean(r.proveedor||'—').substring(0,18),m+115,y);y+=5;
+    });y+=3;
+  }
+  if(o.comentarios){
+    if(y>258){doc.addPage();y=15;}
+    doc.setFillColor(255,248,220);doc.rect(m,y,W-2*m,7,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(120,80,0);
+    doc.text('COMENTARIOS IMPORTANTES',m+2,y+5);y+=9;
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(30,30,30);
+    doc.splitTextToSize(clean(o.comentarios),W-2*m).forEach(l=>{if(y>278){doc.addPage();y=15;}doc.text(l,m,y);y+=4;});
+  }
+  doc.setFillColor(13,43,94);doc.rect(0,287,W,10,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(7);
+  doc.text('SEIL Rigging & Millwright - Sistema de Mantenimiento V3',m,293);
+  doc.text(o.folio,W-m,293,{align:'right'});
+  doc.save(o.folio+'.pdf');
+  }catch(e){alert('Error PDF: '+e.message);}
 }
 
 function genBitacoraPDF(){
@@ -2607,64 +2429,6 @@ function updateSyncBadge() {
 
 // openSheetsModal defined above
 
-// Auto-sync on order close
-const _origCloseOrder = closeOrder;
-
-// ════════════════════════════════════════════════
-// QR + GOOGLE FORMS INTEGRATION
-// ════════════════════════════════════════════════
-const FORM_BASE = 'https://docs.google.com/forms/d/e/1FAIpQLSfbQD37ml-x-jsViUaQIQrV-HE6VzpuSb6EB8MLJEnPuJ_bfQ/viewform';
-let _currentQRFolio = '';
-let _currentQRType  = '';
-
-function showQR(folio, tipo, tecnico) {
-  _currentQRFolio = folio;
-  _currentQRType  = tipo;
-  document.getElementById('qrFolioLabel').textContent = folio + ' — ' + tipo;
-  // Use correct entry IDs extracted from form source
-  let url = FORM_BASE + '?usp=pp_url';
-  url += '&entry.1396246598=' + encodeURIComponent(folio);
-  url += '&entry.1043867172=' + encodeURIComponent(tipo==='Mantenimiento'?'Mantenimiento (reparacion)':tipo);
-  if(tecnico) url += '&entry.1342213927=' + encodeURIComponent(tecnico);
-  document.getElementById('qrFormLink').textContent = url;
-  drawQR(url);
-  openM('mQR');
-}
-
-function openFormDirect() {
-  const url = FORM_BASE + '?usp=pp_url&entry.1='+encodeURIComponent(_currentQRFolio)+'&entry.2='+encodeURIComponent(_currentQRType);
-  window.open(url,'_blank');
-}
-
-function drawQR(text) {
-  const el = document.getElementById('qrCanvas');
-  if(!el) return;
-  el.innerHTML = '';
-  // Try QRCode library
-  if(typeof QRCode !== 'undefined') {
-    try {
-      new QRCode(el, {text:text, width:190, height:190, colorDark:'#0d2b5e', colorLight:'#ffffff', correctLevel:QRCode.CorrectLevel.M});
-      return;
-    } catch(e) {}
-  }
-  // Fallback: Google Charts QR (online) or text link (offline)
-  const img = document.createElement('img');
-  img.style.cssText = 'width:190px;height:190px;display:block;margin:0 auto';
-  img.src = 'https://chart.googleapis.com/chart?chs=190x190&cht=qr&chl='+encodeURIComponent(text)+'&choe=UTF-8';
-  img.onerror = () => {
-    el.innerHTML = '<div style="padding:12px;font-size:9px;word-break:break-all;color:#0d2b5e;text-align:center;background:#f0f4ff;border-radius:8px">'+
-      '<div style="font-size:12px;font-weight:700;margin-bottom:8px">📷 Link del formulario:</div>'+text+'</div>';
-  };
-  el.appendChild(img);
-  // Retry with library if it loads later
-  setTimeout(()=>{
-    if(typeof QRCode !== 'undefined' && el.querySelector('img')) {
-      el.innerHTML='';
-      try{new QRCode(el,{text,width:190,height:190,colorDark:'#0d2b5e',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});}catch(e){}
-    }
-  }, 2000);
-}
-
 
 
 function openOrderReadOnly(id) {
@@ -2696,7 +2460,7 @@ function openOrderReadOnly(id) {
     <div class="alert a-ok">✅ Registro cerrado — ${fmtDF(o.closedAt||'')}</div>
     <div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">
       <button class="btn btn-b btn-sm" onclick="genOrderPDF()">📄 PDF</button>
-      <button class="btn btn-g btn-sm" onclick="showQR('${o.folio}','Mantenimiento','${o.tecnico}')">📷 Evidencias</button>
+      <button class="btn btn-g btn-sm" onclick="openPhotos(\'${o.folio}\')" style="">📷 Subir fotos</button>
     </div>`;
 }
 
@@ -2827,18 +2591,6 @@ const DRIVE_FOLDER_ID = '1wdbWOoZBkLGCVQ9fyPZiSssMmUlRiUL6';
 let _photoFolio = '';
 let _selectedPhotos = [];
 
-function openDriveFolder(folio) {
-  // Try to find specific folder URL for this folio
-  const ord = orders.find(o=>o.folio===folio);
-  const chk = checklists.find(c=>c.folio===folio);
-  const url = (ord&&ord.driveUrl) || (chk&&chk.driveUrl) || null;
-  if(url) {
-    window.open(url, '_blank');
-  } else {
-    // Open general folder and show upload modal
-    openPhotos(folio);
-  }
-}
 function openPhotos(folio) {
   _photoFolio = folio;
   _selectedPhotos = [];
@@ -2979,17 +2731,7 @@ initOffline();
 registerSW();
 updateSyncBadge();
 setTimeout(loadFromSheetsOnStartup, 800); // Delay to let UI render first
-// Restore last screen on page reload
-(function restoreScreen(){
-  const last = sessionStorage.getItem('seil_last_screen');
-  if(last === 'jefeDash') {
-    // Don't auto-restore jefe - requires password
-    return;
-  }
-  // For other screens, home is safest default after reload
-})();
-// Save current screen on navigation for restore
-const _origSS = ss;
+
 
 function _autoSync() {
   // Background sync - silent, no UI
@@ -3202,7 +2944,7 @@ function registerSW(){
     </div>
     <div class="mfooter">
       <button class="btn btn-s" onclick="closeM('mQR')">Cerrar</button>
-      <button class="btn btn-b btn-sm" onclick="openFormDirect()">🔗 Abrir form directo</button>
+      <button class="btn btn-b btn-sm" onclick="window.open('https://drive.google.com/drive/folders/1wdbWOoZBkLGCVQ9fyPZiSssMmUlRiUL6','_blank')">📁 Ver carpeta Drive</button>
     </div>
   </div>
 </div>
@@ -3240,6 +2982,5 @@ function registerSW(){
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 </body>
 </html>
