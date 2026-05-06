@@ -306,7 +306,7 @@ select option{background:#fff}
 .bm-folio{font-family:monospace;font-size:11px;font-weight:800;color:var(--navy);
   background:var(--bg3);padding:2px 6px;border-radius:3px}
 .bm-date{font-size:11px;color:var(--text3)}
-.bm-body{font-size:12px;color:var(--text2);line-height:1.7}
+.bm-body{font-size:13px;color:var(--text2);line-height:1.7}
 
 /* SEARCH */
 .search-wrap{display:flex;gap:8px;margin-bottom:16px;align-items:center}
@@ -381,6 +381,35 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 .photo-link:hover{background:var(--bg)}
 .upload-prog{height:4px;background:var(--border);border-radius:2px;margin-top:8px;overflow:hidden;display:none}
 .upload-prog-bar{height:100%;background:var(--blue);border-radius:2px;transition:width .3s}
+
+/* RESPONSIVE MOBILE */
+@media (max-width: 768px) {
+  .ca { padding: 12px; }
+  .g2,.g3,.g4 { grid-template-columns: 1fr !important; }
+  .hdr { padding: 8px 12px; }
+  .hdr-logo { width: 28px; height: 28px; }
+  .phdr { padding: 10px 12px; flex-wrap: wrap; gap: 6px; }
+  .ptitle { font-size: 15px; }
+  .home-wrap { padding: 16px 12px; }
+  .home-btns { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hbtn { padding: 14px 10px; }
+  .wr-cols { flex-direction: column !important; }
+  .wr-left, .wr-right { width: 100% !important; }
+  .tbl { font-size: 12px; }
+  .tbl th, .tbl td { padding: 6px 8px; }
+  .btn { font-size: 12px; padding: 7px 12px; }
+  .mbox { width: 95vw !important; margin: 8px; }
+  .chk-grid { grid-template-columns: 1fr; }
+  .card { padding: 12px; }
+  .mc { padding: 10px; }
+  .mc-v { font-size: 20px; }
+}
+@media (max-width: 480px) {
+  .home-btns { grid-template-columns: 1fr; }
+  .hdr-title { font-size: 13px; }
+  .breadcrumb-bar { font-size: 11px; padding: 6px 10px; }
+}
+
 </style>
 </head>
 <body>
@@ -895,56 +924,60 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
 const PASS = 'seil2024';
 
 const EQUIPOS = [
-  // MANIOBRA
+  // 1. GANTRYS
   {id:'GA-200-1',tipo:'Gantry',marca:'Lift Systems',modelo:'4200',crit:'AA',comb:'Diesel',km:false},
   {id:'GA-400-1',tipo:'Gantry',marca:'Lift Systems',modelo:'44A',crit:'AA',comb:'Diesel',km:false},
+  // 2. GRÚAS
   {id:'GG-17-2',tipo:'Grúa a Gas',marca:'Broderson',modelo:'IC-80-2D',crit:'A',comb:'Gas LP',km:false},
   {id:'GG-17-4',tipo:'Grúa a Gas',marca:'Broderson',modelo:'IC-80-3F',crit:'A',comb:'Gas LP',km:false},
   {id:'GG-17-6',tipo:'Grúa a Gas',marca:'Broderson',modelo:'IC-80-3F',crit:'A',comb:'Gas LP',km:false},
-  {id:'GG-30-1',tipo:'Grúa a Gas',marca:'Broderson',modelo:'IC 200 2B',crit:'A',comb:'Gas LP',km:false},
-  {id:'GG-30-2',tipo:'Grúa a Gas',marca:'Broderson',modelo:'IC-200-2B',crit:'A',comb:'Gas LP',km:false},
-  {id:'GG-30-3',tipo:'Grúa a Gas',marca:'Broderson',modelo:'IC-200-2F',crit:'A',comb:'Gas LP',km:false},
-  {id:'MD-10-1',tipo:'Montacargas Diésel',marca:'Toyota',modelo:'7FDAU50',crit:'B',comb:'Diesel',km:false},
-  {id:'MD-13-1',tipo:'Montacargas Diésel',marca:'Toyota',modelo:'7FDU60',crit:'B',comb:'Diesel',km:false},
-  {id:'MD-13-3',tipo:'Montacargas Diésel',marca:'Mitsubishi',modelo:'FD70E',crit:'B',comb:'Diesel',km:false},
-  {id:'MD-15-10',tipo:'Montacargas Diésel',marca:'Caterpillar',modelo:'V155C',crit:'AA',comb:'Diesel',km:false},
-  {id:'MD-15-8',tipo:'Montacargas Diésel',marca:'Clark',modelo:'CMP70',crit:'A',comb:'Diesel',km:false},
-  {id:'MD-30-3',tipo:'Montacargas Diésel',marca:'Caterpillar',modelo:'V300',crit:'AA',comb:'Diesel',km:false},
-  {id:'MD-5-1',tipo:'Montacargas Diésel',marca:'Mitsubishi',modelo:'FD30N',crit:'B',comb:'Diesel',km:false},
-  {id:'MD-8-1',tipo:'Montacargas Diésel',marca:'Hyster',modelo:'H80XL',crit:'B',comb:'Diesel',km:false},
-  {id:'MG-10-2',tipo:'Montacargas Gas',marca:'Mitsubishi',modelo:'FG50CN1',crit:'B',comb:'Gas LP',km:false},
-  {id:'MG-13-2',tipo:'Montacargas Gas',marca:'Hyster',modelo:'S135FT',crit:'B',comb:'Gas LP',km:false},
-  {id:'MG-140-1',tipo:'Montacargas Gas',marca:'Brute Lift',modelo:'BT 140-24',crit:'AA',comb:'Gas LP',km:false},
-  {id:'MG-15-10',tipo:'Montacargas Gas',marca:'Caterpillar',modelo:'GC70KLP',crit:'B',comb:'Gas LP',km:false},
-  {id:'MG-15-12',tipo:'Montacargas Gas',marca:'Caterpillar',modelo:'GC70K',crit:'B',comb:'Gas LP',km:false},
-  {id:'MG-15-9',tipo:'Montacargas Gas',marca:'Caterpillar',modelo:'GC70K',crit:'B',comb:'Gas LP',km:false},
-  {id:'MG-40/60-2',tipo:'Montacargas Gas',marca:'Hoist',modelo:'FR-40/60',crit:'AA',comb:'Gas LP',km:false},
-  {id:'MG-40/60-4',tipo:'Montacargas Gas',marca:'Hoist',modelo:'FR-40/60',crit:'AA',comb:'Gas LP',km:false},
-  {id:'SLO-4',tipo:'Lowboy',marca:'Choice Trailers',modelo:'460NG',crit:'AA',comb:'Diesel',km:true},
-  {id:'SLO-5',tipo:'Lowboy',marca:'Landoll',modelo:'317',crit:'AA',comb:'Diesel',km:true},
-  {id:'SLO-8',tipo:'Lowboy',marca:'TTSA Trailers',modelo:'B55-PAVER',crit:'AA',comb:'Diesel',km:true},
-  {id:'STR-2',tipo:'Tractocamión',marca:'Kenworth',modelo:'KENWORTH',crit:'A',comb:'Diesel',km:true},
-  {id:'STR-6',tipo:'Tractocamión',marca:'Freightliner',modelo:'FREIGHTLINER',crit:'A',comb:'Diesel',km:true},
-  // VEHÍCULOS
-  {id:'SVU-2',tipo:'Camioneta',marca:'Ford',modelo:'Ranger Crew Cab',crit:'A',comb:'Gasolina',km:true},
-  {id:'SVU-5',tipo:'Camioneta',marca:'Chevrolet',modelo:'Tornado Pick Up',crit:'A',comb:'Gasolina',km:true},
-  {id:'SVU-7',tipo:'Camioneta',marca:'Nissan',modelo:'NP300 Estacas',crit:'A',comb:'Gasolina',km:true},
-  {id:'SVU-29',tipo:'Camioneta',marca:'Nissan',modelo:'NP300 Doble Cab 4WD',crit:'B',comb:'Gasolina',km:true},
-  {id:'SVU-33',tipo:'Camioneta',marca:'VW',modelo:'Saveiro Pick Up',crit:'B',comb:'Gasolina',km:true},
-  {id:'SVU-34',tipo:'Auto',marca:'Toyota',modelo:'Yaris Core Sedan 2021',crit:'B',comb:'Gasolina',km:true},
-  {id:'SVU-35',tipo:'Camioneta',marca:'Toyota',modelo:'Avanza Premium',crit:'B',comb:'Gasolina',km:true},
-  {id:'SVU-37',tipo:'Camioneta',marca:'Toyota',modelo:'Hilux Doble Cab 2021',crit:'B',comb:'Gasolina',km:true},
-  {id:'SVU-38',tipo:'Camioneta',marca:'Toyota',modelo:'Hilux Doble Cab 2022',crit:'B',comb:'Gasolina',km:true},
-  {id:'SVU-39',tipo:'Camioneta',marca:'Toyota',modelo:'Hilux Doble Cab 2022b',crit:'B',comb:'Gasolina',km:true},
-  {id:'SVU-41',tipo:'Camioneta',marca:'Toyota',modelo:'Hilux Doble Cab SR 2017',crit:'B',comb:'Gasolina',km:true},
-  {id:'SVU-42',tipo:'Auto',marca:'Toyota',modelo:'Yaris Core 2019',crit:'B',comb:'Gasolina',km:true},
-  {id:'SVU-43',tipo:'Camioneta',marca:'Toyota',modelo:'Hilux Doble Cab 2023',crit:'B',comb:'Gasolina',km:true},
-  {id:'SVU-46',tipo:'Auto',marca:'VW',modelo:'Virtus 1.6 Tiptronic',crit:'B',comb:'Gasolina',km:true},
-  {id:'SVU-48',tipo:'Camioneta',marca:'Toyota',modelo:'Hilux 2024',crit:'B',comb:'Gasolina',km:true},
-  {id:'SVU-49',tipo:'Camioneta',marca:'Toyota',modelo:'Tacoma Doble Cab 2024',crit:'B',comb:'Gasolina',km:true},
-  {id:'SCA-4',tipo:'Camioneta Carga',marca:'Ford',modelo:'F-350 Super Duty',crit:'A',comb:'Gasolina',km:true},
-  {id:'SWA-6',tipo:'Van',marca:'Ford',modelo:'Econoline Club Wagon',crit:'A',comb:'Gasolina',km:true},
-  {id:'SWA-7',tipo:'Van',marca:'Ford',modelo:'Transit 2018',crit:'A',comb:'Gasolina',km:true},
+  {id:'GG-30-1',tipo:'Grúa a Gas',marca:'Broderson',modelo:'IC-200-3F',crit:'A',comb:'Gas LP',km:false},
+  {id:'GG-30-2',tipo:'Grúa a Gas',marca:'Broderson',modelo:'IC-200-3F',crit:'A',comb:'Gas LP',km:false},
+  {id:'GG-30-3',tipo:'Grúa a Gas',marca:'Broderson',modelo:'IC-200-3F',crit:'A',comb:'Gas LP',km:false},
+  // 3. MONTACARGAS GAS
+  {id:'MG-10-2',tipo:'Montacargas Gas',marca:'Hyster',modelo:'H10XM',crit:'B',comb:'Gas LP',km:false},
+  {id:'MG-13-2',tipo:'Montacargas Gas',marca:'Hyster',modelo:'H13XM',crit:'B',comb:'Gas LP',km:false},
+  {id:'MG-140-1',tipo:'Montacargas Gas',marca:'Hyster',modelo:'H140FT',crit:'B',comb:'Gas LP',km:false},
+  {id:'MG-15-9',tipo:'Montacargas Gas',marca:'Hyster',modelo:'H15XM',crit:'B',comb:'Gas LP',km:false},
+  {id:'MG-15-10',tipo:'Montacargas Gas',marca:'Hyster',modelo:'H15XM',crit:'B',comb:'Gas LP',km:false},
+  {id:'MG-15-12',tipo:'Montacargas Gas',marca:'Hyster',modelo:'H15XM',crit:'B',comb:'Gas LP',km:false},
+  {id:'MG-40/60-2',tipo:'Montacargas Gas',marca:'Hyster',modelo:'H40/60FT',crit:'B',comb:'Gas LP',km:false},
+  {id:'MG-40/60-4',tipo:'Montacargas Gas',marca:'Hyster',modelo:'H40/60FT',crit:'B',comb:'Gas LP',km:false},
+  // 4. MONTACARGAS DIESEL
+  {id:'MD-5-1',tipo:'Montacargas Diésel',marca:'Hyster',modelo:'H5FT',crit:'B',comb:'Diesel',km:false},
+  {id:'MD-8-1',tipo:'Montacargas Diésel',marca:'Hyster',modelo:'H8FT',crit:'B',comb:'Diesel',km:false},
+  {id:'MD-10-1',tipo:'Montacargas Diésel',marca:'Hyster',modelo:'H10FT',crit:'B',comb:'Diesel',km:false},
+  {id:'MD-13-1',tipo:'Montacargas Diésel',marca:'Hyster',modelo:'H13FT',crit:'B',comb:'Diesel',km:false},
+  {id:'MD-13-3',tipo:'Montacargas Diésel',marca:'Hyster',modelo:'H13FT',crit:'B',comb:'Diesel',km:false},
+  {id:'MD-15-8',tipo:'Montacargas Diésel',marca:'Hyster',modelo:'H15FT',crit:'B',comb:'Diesel',km:false},
+  {id:'MD-15-10',tipo:'Montacargas Diésel',marca:'Hyster',modelo:'H15FT',crit:'B',comb:'Diesel',km:false},
+  {id:'MD-30-3',tipo:'Montacargas Diésel',marca:'Hyster',modelo:'H30FT',crit:'B',comb:'Diesel',km:false},
+  // 5. TRACTOS Y LOWBOYS
+  {id:'STR-2',tipo:'Tractocamión',marca:'Kenworth',modelo:'T800',crit:'A',comb:'Diesel',km:true},
+  {id:'STR-6',tipo:'Tractocamión',marca:'Kenworth',modelo:'T800',crit:'A',comb:'Diesel',km:true},
+  {id:'SLO-4',tipo:'Lowboy',marca:'Talbert',modelo:'55SA',crit:'A',comb:'—',km:false},
+  {id:'SLO-5',tipo:'Lowboy',marca:'Talbert',modelo:'55SA',crit:'A',comb:'—',km:false},
+  {id:'SLO-8',tipo:'Lowboy',marca:'Talbert',modelo:'55SA',crit:'A',comb:'—',km:false},
+  // 6. VEHÍCULOS
+  {id:'SVU-2',tipo:'Camioneta',marca:'Ford',modelo:'F-150',crit:'C',comb:'Gasolina',km:true},
+  {id:'SVU-5',tipo:'Camioneta',marca:'Ford',modelo:'F-150',crit:'C',comb:'Gasolina',km:true},
+  {id:'SVU-7',tipo:'Camioneta',marca:'Ford',modelo:'F-150',crit:'C',comb:'Gasolina',km:true},
+  {id:'SVU-29',tipo:'Camioneta',marca:'Ford',modelo:'F-150',crit:'C',comb:'Gasolina',km:true},
+  {id:'SVU-33',tipo:'Camioneta',marca:'Ford',modelo:'F-150',crit:'C',comb:'Gasolina',km:true},
+  {id:'SVU-34',tipo:'Auto',marca:'Nissan',modelo:'Versa',crit:'C',comb:'Gasolina',km:true},
+  {id:'SVU-35',tipo:'Camioneta',marca:'Ford',modelo:'F-150',crit:'C',comb:'Gasolina',km:true},
+  {id:'SVU-37',tipo:'Camioneta',marca:'Ford',modelo:'F-150',crit:'C',comb:'Gasolina',km:true},
+  {id:'SVU-38',tipo:'Camioneta',marca:'Ford',modelo:'F-150',crit:'C',comb:'Gasolina',km:true},
+  {id:'SVU-39',tipo:'Camioneta',marca:'Ford',modelo:'F-150',crit:'C',comb:'Gasolina',km:true},
+  {id:'SVU-41',tipo:'Camioneta',marca:'Ford',modelo:'F-150',crit:'C',comb:'Gasolina',km:true},
+  {id:'SVU-42',tipo:'Auto',marca:'Nissan',modelo:'Versa',crit:'C',comb:'Gasolina',km:true},
+  {id:'SVU-43',tipo:'Camioneta',marca:'Ford',modelo:'F-150',crit:'C',comb:'Gasolina',km:true},
+  {id:'SVU-46',tipo:'Auto',marca:'Nissan',modelo:'Versa',crit:'C',comb:'Gasolina',km:true},
+  {id:'SVU-48',tipo:'Camioneta',marca:'Ford',modelo:'F-150',crit:'C',comb:'Gasolina',km:true},
+  {id:'SVU-49',tipo:'Camioneta',marca:'Ford',modelo:'F-150',crit:'C',comb:'Gasolina',km:true},
+  {id:'SCA-4',tipo:'Camioneta Carga',marca:'Ford',modelo:'F-350',crit:'C',comb:'Gasolina',km:true},
+  {id:'SWA-6',tipo:'Van',marca:'Ford',modelo:'Transit',crit:'C',comb:'Gasolina',km:true},
+  {id:'SWA-7',tipo:'Van',marca:'Ford',modelo:'Transit',crit:'C',comb:'Gasolina',km:true},
 ];
 
 const TECNICOS = [
@@ -958,9 +991,9 @@ const TECNICOS = [
 const CHK_GRUA = [
   {sec:'Aceite',items:['Motor','Hidráulico','Transmisión','Diferencial','Planetarios']},
   {sec:'Enfriamiento',items:['Nivel del recuperador','Banda de ventilador','Nivel del radiador']},
-  {sec:'Frenos',items:['De Servicio','De Estacionamiento','Líquido de frenos']},
+  {sec:'Frenos',items:['De Servicio','De Estacionamiento','Frenos']},
   {sec:'Lubricación',items:['Extensiones de pluma','Tornamesa','Pernos de pistones','Barra cardan','Varillaje de dirección']},
-  {sec:'Sistema Eléctrico',items:['Batería identificada','Voltaje de carga','Sujetador de batería','Switch encendido','Switch luces','Luz trasera','Luz delantera','Luz reversa','Luz stop','Torreta','Claxon','Alarma reversa','Display de carga','Microswitch freno mano']},
+  {sec:'Sistema Eléctrico',items:['Batería identificada','Voltaje de carga','Sujetador de batería','Switch encendido','Switch luces','Luz trasera','Luz delantera','Luz reversa','Torreta','Claxon','Alarma reversa','Display de carga','Microswitch freno mano']},
   {sec:'Seguridad',items:['Cinturón de seguridad','Base para extintor','Extintor','Botón paro emergencia','Limit switches']},
   {sec:'Llantas',items:['Traseras','Delanteras','Tuercas / Birlos']},
   {sec:'Fugas',items:['Pistones hidráulicos','Motor','Mangueras','Transmisión','Depósito hidráulico','Combustible','Carrete winch']},
@@ -971,13 +1004,12 @@ const CHK_MONTA = [
   {sec:'Aceite',items:['Motor','Hidráulico','Transmisión','Diferencial','Planetarios']},
   {sec:'Enfriamiento',items:['Nivel del recuperador','Banda de ventilador','Nivel del radiador']},
   {sec:'Frenos',items:['De Servicio','De Estacionamiento','Líquido de frenos']},
-  {sec:'Lubricación',items:['Carro deslizador','Segmentos de torre','Pernos de pistones','Barra cardan','Cadenas','Varillaje de dirección']},
-  {sec:'Sistema Eléctrico',items:['Batería identificada','Voltaje de carga','Sujetador de batería','Switch encendido','Switch luces','Luz trasera','Luz delantera','Luz reversa','Luz stop','Torreta','Claxon','Alarma reversa','Luz proximidad tras.','Luz proximidad del.']},
-  {sec:'Seguridad',items:['Cinturón de seguridad','Base para extintor','Extintor','Botón paro emergencia']},
+  {sec:'Lubricación',items:['Carro deslizador','Segmentos de torre','Pernos de pistones','Cadenas','Varillaje de dirección']},
+  {sec:'Sistema Eléctrico',items:['Batería identificada','Voltaje de carga','Sujetador de batería','Switch encendido','Switch luces','Luz trasera','Luz delantera','Luz reversa','Torreta','Claxon','Alarma reversa','Luz proximidad tras.','Luz proximidad del.']},
+  {sec:'Seguridad',items:['Cinturón de seguridad','Base para extintor','Botón paro emergencia']},
   {sec:'Llantas',items:['Traseras','Delanteras','Tuercas / Birlos']},
   {sec:'Fugas',items:['Pistones hidráulicos','Motor','Mangueras','Transmisión','Depósito hidráulico','Combustible']},
   {sec:'40/60 (aplica)',items:['Nylamid','Perno de seguridad','Cable de perno','Pantalla instrumentos','Lubricación extensión','Pantalla reversa']},
-  {sec:'BOOM',items:['BOOM — pernos, barra cuadrada, barra larga, manivela']},
   {sec:'Estética',items:['Kit de calcomanías (SEIL)','Pintura de chasis','Pintura de horquillas','N. Económico (etiqueta)']},
 ];
 const CHK_TRACTO = [
@@ -1000,7 +1032,44 @@ const CHK_VEH = [
 function getChkTemplate(eqId) {
   const p = eqId.split('-')[0];
   if(['GG','GD','GA'].includes(p)) return {type:'GRU',pre:'GRU-CHK',secs:CHK_GRUA};
-  if(['MG','MD'].includes(p)) return {type:'MNT',pre:'MNT-CHK',secs:CHK_MONTA};
+  if(['MG','MD'].includes(p)) {
+    // Deep clone sections to allow per-equipment customization
+    let secs = JSON.parse(JSON.stringify(CHK_MONTA));
+    // Fuel label based on equipment type
+    const fuelLabel = p==='MD' ? 'Diesel' : 'Gas LP';
+    secs.forEach(sec => {
+      if(sec.sec==='Fugas') {
+        sec.items = sec.items.map(i => i==='Combustible' ? fuelLabel : i);
+      }
+    });
+    // 40/60 only for MG-40/60-2 and MG-40/60-4
+    if(!['MG-40/60-2','MG-40/60-4'].includes(eqId)) {
+      secs = secs.filter(s => s.sec !== '40/60 (aplica)');
+    }
+    // MG-140-1 special cases
+    if(eqId === 'MG-140-1') {
+      secs.forEach(sec => {
+        if(sec.sec==='Frenos') {
+          sec.items = sec.items.map(i => i==='Frenos' ? 'Compresor de aire' : i);
+        }
+        if(sec.sec==='Seguridad') {
+          sec.items = sec.items.filter(i => i!=='Botón paro emergencia');
+        }
+        if(sec.sec==='Fugas') {
+          sec.items = sec.items.map(i => (i==='Combustible'||i==='Diesel') ? 'Gas LP' : i);
+        }
+      });
+    }
+    // For all 40/60 equipment, remove certain items
+    if(['MG-40/60-2','MG-40/60-4'].includes(eqId)) {
+      secs.forEach(sec => {
+        if(sec.sec==='Sistema Eléctrico') {
+          sec.items = sec.items.filter(i => i!=='Torreta');
+        }
+      });
+    }
+    return {type:'MNT',pre:'MNT-CHK',secs};
+  }
   if(['STR','SLO'].includes(p)) return {type:'TRC',pre:'TRC-CHK',secs:CHK_TRACTO};
   return {type:'VEH',pre:'VEH-CHK',secs:CHK_VEH};
 }
@@ -1394,6 +1463,7 @@ function startOrder() {
   currentOrder.bitacora=currentOrder.bitacora||[];
   currentOrder.bitacora.push({ts:new Date().toISOString(),autor:currentTech?currentTech.name:'Sistema',text:'Trabajo iniciado',sistema:true});
   sv(); renderWR();
+  _autoSync();
 }
 function resumeOrder() {
   const now=new Date();
@@ -2754,6 +2824,18 @@ const DRIVE_FOLDER_ID = '1wdbWOoZBkLGCVQ9fyPZiSssMmUlRiUL6';
 let _photoFolio = '';
 let _selectedPhotos = [];
 
+function openDriveFolder(folio) {
+  // Try to find specific folder URL for this folio
+  const ord = orders.find(o=>o.folio===folio);
+  const chk = checklists.find(c=>c.folio===folio);
+  const url = (ord&&ord.driveUrl) || (chk&&chk.driveUrl) || null;
+  if(url) {
+    window.open(url, '_blank');
+  } else {
+    // Open general folder and show upload modal
+    openPhotos(folio);
+  }
+}
 function openPhotos(folio) {
   _photoFolio = folio;
   _selectedPhotos = [];
