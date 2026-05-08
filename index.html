@@ -124,6 +124,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .b-paus{background:#fef9c3;color:#92660a}
 .b-clos{background:#dcfce7;color:var(--green)}
 .b-chk{background:#ede9fe;color:var(--purple)}
+.b-crit{background:#fee2e2;color:#991b1b;border-color:#ef4444;font-weight:700}
 .b-alta{background:#fee2e2;color:var(--red)}
 .b-media{background:#fef9c3;color:#92660a}
 .b-normal{background:#dbeafe;color:var(--blue)}
@@ -224,10 +225,8 @@ select option{background:#fff}
 .del-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:15px;padding:0 4px}
 
 /* TIMER */
-.timer{font-family:monospace;font-size:28px;font-weight:800;color:var(--navy);
-  letter-spacing:3px;text-align:center}
-.timer-label{font-size:10px;color:var(--text3);text-align:center;margin-top:3px;
-  letter-spacing:1px;text-transform:uppercase}
+
+
 
 /* STATUS BAR */
 .status-bar{display:flex;align-items:center;gap:8px;padding:10px 12px;
@@ -405,6 +404,29 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   .breadcrumb-bar { font-size: 11px; padding: 6px 10px; }
 }
 
+
+.ref-suggest{padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12px}
+.ref-suggest:hover{background:var(--bg2)}
+#refSuggestions{position:absolute;z-index:200;background:#fff;border:1px solid var(--border);border-radius:var(--radius-sm);width:100%;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.1)}
+.ref-input-wrap{position:relative}
+
+
+@media (max-width: 768px) {
+  .btn { min-height: 40px; font-size: 13px; }
+  .btn-p { min-height: 44px; font-size: 14px; font-weight: 700; }
+  .chk-btn { min-height: 36px; font-size: 13px; padding: 6px 10px; }
+  .hbtn { padding: 16px 12px; }
+  .wr-cols { flex-direction: column !important; }
+  .wr-left, .wr-right { width: 100% !important; min-width: 0 !important; }
+  .wrActions-wrap { position: sticky; bottom: 0; background: var(--bg); padding: 10px; border-top: 1px solid var(--border); z-index: 10; }
+  #wrActions .btn { width: 100%; margin-bottom: 6px; min-height: 48px; font-size: 15px; }
+  .tbl { font-size: 12px; }
+  .tbl th, .tbl td { padding: 5px 6px; }
+  .ref-tbl th, .ref-tbl td { padding: 5px 6px; font-size: 11px; }
+  .mbox { max-height: 90vh; overflow-y: auto; }
+  .photo-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
 </style>
 </head>
 <body>
@@ -453,9 +475,9 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
           <div class="hbtn-ic ic-blue">📊</div>
           <div><div class="hbtn-label">Dashboard &amp; Métricas</div><div class="hbtn-desc">Indicadores de mantenimiento y checklists</div></div>
         </div>
-        <div class="hbtn off">
-          <div class="hbtn-ic ic-gray">🔒</div>
-          <div><div class="hbtn-label">Módulo Libre</div><div class="hbtn-desc">Disponible para futura implementación</div></div>
+        <div class="hbtn" onclick="openRefHistorial()" style="cursor:pointer">
+          <div class="hbtn-ic ic-blue">🔩</div>
+          <div><div class="hbtn-label">Refacciones</div><div class="hbtn-desc">Catálogo e historial de refacciones</div></div>
         </div>
       </div>
     </div>
@@ -586,7 +608,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
         <div class="card" style="margin-bottom:12px">
           <div class="card-t">📝 Bitácora de avances</div>
           <div id="wrBit"></div>
-          <textarea id="wrEntry" rows="3" placeholder="Describe lo que hiciste hoy..." style="margin-top:8px;resize:vertical" disabled></textarea>
+          <textarea id="wrEntry" rows="3" placeholder="Ej: Se desmontó bomba hidráulica, se detectó sello dañado. Esperando refacción..." style="margin-top:8px;resize:vertical" disabled></textarea>
           <div style="display:flex;gap:6px;margin-top:6px">
             <button class="btn btn-p btn-sm" id="addBitBtn" onclick="addBit()" disabled>+ Agregar avance</button>
             <span class="autosave-dot" id="autosaveDot"></span><span style="font-size:10px;color:var(--text3)">Auto 30s</span>
@@ -600,7 +622,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
             <tbody id="refBody"></tbody>
           </table>
           <div style="margin-top:10px;display:grid;grid-template-columns:2fr 50px 1fr 1fr 80px 32px;gap:5px;align-items:end">
-            <div><label>Refacción</label><input type="text" id="rNom" placeholder="Filtro de aceite" disabled></div>
+            <div class="ref-input-wrap"><label>Refacción <button class="btn btn-s" style="font-size:10px;padding:1px 6px;float:right" onclick="openRefHistorial()" type="button">📋</button></label><input type="text" id="rNom" placeholder="Filtro de aceite — escribe para buscar" oninput="autoCompleteRef(this.value)" autocomplete="off" disabled><div id="refSuggestions"></div></div>
             <div><label>Cant.</label><input type="number" id="rCnt" value="1" min="1" disabled></div>
             <div><label>Código</label><input type="text" id="rCod" placeholder="GP-68" disabled></div>
             <div><label>Proveedor</label><input type="text" id="rProv" placeholder="AutoZone" disabled></div>
@@ -643,17 +665,13 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
         <div class="card" style="margin-bottom:12px">
           <div class="card-t">🕐 Horómetro / Kilometraje</div>
           <div class="fr" style="margin-bottom:6px">
-            <div><label>Horómetro (hrs)</label><input type="number" id="wrHoro" placeholder="ej. 14350"></div>
-            <div><label>Kilometraje (km)</label><input type="number" id="wrKm" placeholder="si aplica"></div>
+            <div><label>Horómetro (hrs)</label><input type="number" id="wrHoro" placeholder="ej. 14350" inputmode="numeric" pattern="[0-9]*"></div>
+            <div><label>Kilometraje (km)</label><input type="number" id="wrKm" placeholder="si aplica" inputmode="numeric" pattern="[0-9]*"></div>
           </div>
           <div id="horoHistory" style="font-size:11px;color:var(--text3);margin-bottom:6px"></div>
           <button class="btn btn-s btn-sm" onclick="saveHoro()">Actualizar</button>
         </div>
-        <div class="card" style="margin-bottom:12px">
-          <div class="card-t">⏱ Tiempo abierto</div>
-          <div class="timer" id="wrTimer">00:00:00</div>
-          <div class="timer-label" id="wrTimerLabel">—</div>
-        </div>
+
         <div class="card" id="linkedChkCard" style="display:none">
           <div class="card-t">✅ Checklist vinculado</div>
           <div id="linkedChkInfo"></div>
@@ -678,8 +696,8 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
         <div class="fg"><label>Equipo *</label><select id="chkEquip" onchange="chkEquipChange()"></select></div>
       </div>
       <div class="fr">
-        <div class="fg"><label>Horómetro (hrs)</label><input type="number" id="chkHoro" placeholder="—"></div>
-        <div class="fg"><label>Kilometraje (km)</label><input type="number" id="chkKm" placeholder="si aplica"></div>
+        <div class="fg"><label>Horómetro (hrs)</label><input type="number" id="chkHoro" placeholder="ej. 14350" inputmode="numeric" pattern="[0-9]*"></div>
+        <div class="fg"><label>Kilometraje (km)</label><input type="number" id="chkKm" placeholder="si aplica" inputmode="numeric" pattern="[0-9]*"></div>
       </div>
       <div id="chkOrderLink" style="margin-bottom:8px"></div>
       <div id="chkPreview" style="margin-bottom:12px"></div>
@@ -695,6 +713,12 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <div style="flex:1">
       <div class="ptitle" id="chkFolio" style="font-family:monospace;font-size:13px;color:#fff"></div>
       <div class="psub" id="chkFSub"></div>
+    <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+      <div style="flex:1;background:var(--border);border-radius:99px;height:8px;overflow:hidden">
+        <div id="chkProgBar" style="height:8px;background:var(--green);border-radius:99px;width:0%;transition:width .3s"></div>
+      </div>
+      <span id="chkProgLabel" style="font-size:11px;color:var(--text2);white-space:nowrap">0 / 0 ítems</span>
+    </div>
     </div>
     <div id="chkProgress" style="color:rgba(255,255,255,.7);font-size:12px;font-weight:700"></div>
   </div>
@@ -804,7 +828,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <div class="fg"><label>Técnico asignado *</label><select id="cTec"></select></div>
     </div>
     <div class="fr3">
-      <div class="fg"><label>Prioridad</label><select id="cPri"><option value="Alta">Alta — 1 día</option><option value="Media">Media — 2 días</option><option value="Normal" selected>Normal — 3-5 días</option><option value="Baja">Baja</option></select></div>
+      <div class="fg"><label>Prioridad</label><select id="cPri"><option value="Critico">🔴 Crítico — equipo parado</option><option value="Alta">Alta — 1 día</option><option value="Media">Media — 2 días</option><option value="Normal" selected>Normal — 3-5 días</option><option value="Baja">Baja</option></select></div>
       <div class="fg"><label>Horómetro (hrs)</label><input type="number" id="cHoro" placeholder="ej. 14350"></div>
       <div class="fg"><label>Kilometraje (km)</label><input type="number" id="cKm" placeholder="si aplica"></div>
     </div>
@@ -872,7 +896,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <div class="mt">✏️ Editar registro — <span id="editOrderFolio" style="color:var(--red);font-family:monospace"></span></div>
     <div class="alert a-warn" style="margin-bottom:12px">Solo corrección de datos. El estado no cambia.</div>
     <div class="fr"><div class="fg"><label>Horómetro (hrs)</label><input type="number" id="eoHoro"></div><div class="fg"><label>Kilometraje (km)</label><input type="number" id="eoKm"></div></div>
-    <div class="fr"><div class="fg"><label>Técnico</label><select id="eoTec"></select></div><div class="fg"><label>Prioridad</label><select id="eoPri"><option>Alta</option><option>Media</option><option>Normal</option><option>Baja</option></select></div></div>
+    <div class="fr"><div class="fg"><label>Técnico</label><select id="eoTec"></select></div><div class="fg"><label>Prioridad</label><select id="eoPri"><option>Critico</option><option>Alta</option><option>Media</option><option>Normal</option><option>Baja</option></select></div></div>
     <div class="fg"><label>Notas</label><textarea id="eoNotas" rows="2"></textarea></div>
     <div class="fg"><label>Comentarios</label><textarea id="eoComents" rows="2"></textarea></div>
     <div class="fg"><label>Costo estimado ($)</label><input type="number" id="eoCosto" step="0.01"></div>
@@ -1085,7 +1109,7 @@ const D = ld();
 let orders = D.orders;
 let checklists = D.checklists;
 let currentTech = null, currentOrder = null, currentChk = null;
-let timerIv = null, delTargetId = null, isJefe = false;
+let delTargetId = null, isJefe = false;
 
 // ════════════════════════════════════════════════
 // FOLIO
@@ -1191,8 +1215,8 @@ function renderDash() {
         <span style="font-size:12px;width:16px;text-align:right">${cnt}</span></div>`;
     }).join('')+'</div>';
   // Priorities
-  const prios = ['Alta','Media','Normal'];
-  const prioColors = ['c-acc','c-blue','c-grn'];
+  const prios = ['Critico','Alta','Media','Normal'];
+  const prioColors = ['c-red','c-acc','c-blue','c-grn'];
   const prioMax = Math.max(...prios.map(p=>orders.filter(o=>o.prioridad===p&&o.status!=='Cerrado').length),1);
   document.getElementById('dPrio').innerHTML='<div style="margin-top:8px">'+
     prios.map((p,i)=>{
@@ -1482,7 +1506,7 @@ function renderWR() {
       <div style="display:flex;gap:6px;margin-top:6px"><button class="btn btn-s btn-sm" onclick="openM('mPosp')">✎ Actualizar motivo</button><button class="btn btn-r" onclick="startOrder()">▶ Iniciar ahora</button></div>`;
   } else if(o.status==='En Proceso') {
     act.innerHTML = `<div style="display:flex;flex-direction:column;gap:7px">
-      <button class="btn btn-s" onclick="openM(\'mPause\')" style="border-color:#fca5a5;color:var(--red)">🔴 Pausar — espera refacción</button>
+      <button class="btn btn-s" onclick="openM(\'mPause\')" style="border-color:#fca5a5;color:var(--red)">🔴 Pausar — falta refacción o autorización</button>
       <button class="btn btn-b btn-sm" onclick="openPhotos(\'${o.folio}\')">📷 Subir evidencias</button>
       <button class="btn btn-g" onclick="closeOrder()">✅ Cerrar trabajo</button>
     </div>`;
@@ -1516,26 +1540,8 @@ function renderWR() {
       </div>
     </div>` : `<span class="folio">${o.linkedChk}</span>`;
   } else { lcc.style.display='none'; }
-  renderBit(); renderRef(); startTimer();
-}
+  renderBit(); renderRef(); }
 
-function startTimer() {
-  clearInterval(timerIv);
-  const o = currentOrder;
-  const te = document.getElementById('wrTimer');
-  const tl = document.getElementById('wrTimerLabel');
-  if(o.status==='En Proceso' && o.startedAt) {
-    timerIv = setInterval(()=>{
-      const e = Date.now()-new Date(o.startedAt).getTime()-(o.totalPauseMs||0);
-      te.textContent = msHMS(Math.max(0,e));
-    },1000);
-    tl.textContent = `Abierto el ${fmtD(o.startedAt)}`;
-  } else if(o.closedAt && o.startedAt) {
-    const e = new Date(o.closedAt)-new Date(o.startedAt)-(o.totalPauseMs||0);
-    te.textContent = msHMS(Math.max(0,e));
-    tl.textContent = `Cerrado el ${fmtD(o.closedAt)}`;
-  } else { te.textContent='00:00:00'; tl.textContent='Sin iniciar'; }
-}
 
 function renderBit() {
   const o = currentOrder;
@@ -1592,9 +1598,20 @@ function resumeOrder() {
   sv(); renderWR();
 }
 function closeOrder() {
-  if(!confirm('¿Cerrar el registro? Se requerirá completar el checklist de liberación.')) return;
+  if(!confirm('¿Terminaste el trabajo? \n\nSe abrirá el checklist de liberación.\nUna vez cerrado, solo el Jefe de Taller puede editar.')) return;
+  // Ask about overtime
+  const extra = prompt('¿Hubo tiempo extra fuera de jornada?\n\nEscribe una nota (ej: "Se quedó 3 hrs por pieza de emergencia")\nO deja vacío si no hubo tiempo extra:');
+  if(extra && extra.trim()) {
+    currentOrder.bitacora = currentOrder.bitacora||[];
+    currentOrder.bitacora.push({
+      ts: new Date().toISOString(),
+      autor: 'Sistema',
+      text: '⏰ Tiempo extra: ' + extra.trim(),
+      sistema: true
+    });
+  }
   currentOrder.status='Cerrado - Checklist'; currentOrder.closedAt=new Date().toISOString();
-  clearInterval(timerIv); sv(); renderWR(); _autoSync();
+  sv(); renderWR(); _autoSync();
 }
 function openCloseChk() {
   const tmpl=getChkTemplate(currentOrder.equipo);
@@ -1650,7 +1667,7 @@ function confirmPause() {
   currentOrder.status='Pausa Refacción'; currentOrder.pauseReason=r; currentOrder.pausedAt=new Date().toISOString();
   currentOrder.bitacora=currentOrder.bitacora||[];
   currentOrder.bitacora.push({ts:new Date().toISOString(),autor:currentTech?currentTech.name:'Sistema',text:`PAUSA: ${r}`,sistema:true});
-  sv(); closeM('mPause'); clearInterval(timerIv); renderWR();
+  sv(); closeM('mPause'); renderWR();
 }
 function openDel(id) { delTargetId=id; document.getElementById('delPass').value=''; document.getElementById('delErr').style.display='none'; openM('mDel'); }
 function confirmDel() {
@@ -1748,8 +1765,7 @@ function setChk(key,val,btn) {
   const par=btn.closest('.chk-sel');
   par.querySelectorAll('.chk-btn').forEach(b=>b.classList.remove('ok','fail','na'));
   btn.classList.add(val);
-  const done=Object.keys(currentChk.items).length;
-  document.getElementById('chkProgress').textContent=`${done} / ${currentChk._total||'?'} completados`;
+  updateChkProgress();
 }
 function saveChk() {
   const d=currentChk;
@@ -2353,7 +2369,7 @@ function stab(cid,el) {
 // ════════════════════════════════════════════════
 function stbadge(s){const m={Pendiente:'b-pend',Pospuesto:'b-posp','En Proceso':'b-proc','Pausa Refacción':'b-paus','Cerrado - Checklist':'b-chk',Cerrado:'b-clos'};return`<span class="badge ${m[s]||'b-pend'}">${s}</span>`;}
 function sbadge(t){return`<span class="badge ${t==='Correctivo'?'b-corr':'b-prev'}">${t}</span>`;}
-function pbadge(p){const m={Alta:'b-alta',Media:'b-media',Normal:'b-normal',Baja:'b-baja'};return`<span class="badge ${m[p]||'b-normal'}">${p}</span>`;}
+function pbadge(p){const m={Critico:'b-crit',Alta:'b-alta',Media:'b-media',Normal:'b-normal',Baja:'b-baja'};return`<span class="badge ${m[p]||'b-normal'}">${p==='Critico'?'🔴 Crítico':p}</span>`;}
 function msHMS(ms){const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60),sec=s%60;return[h,m,sec].map(x=>String(x).padStart(2,'0')).join(':');}
 function fmtD(iso){if(!iso)return'—';return new Date(iso).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});}
 function fmtDF(iso){if(!iso)return'—';return new Date(iso).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}
@@ -2847,6 +2863,147 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+
+function getRefaccionesHistorial() {
+  // Collect all unique refacciones from all orders
+  const hist = {};
+  orders.forEach(o => {
+    (o.refacciones||[]).forEach(r => {
+      const key = (r.nombre||'').toLowerCase().trim();
+      if(!key) return;
+      if(!hist[key]) hist[key] = {nombre:r.nombre, codigo:r.codigo||'', proveedor:r.proveedor||'', veces:0, ultimaOrden:''};
+      hist[key].veces++;
+      hist[key].ultimaOrden = o.folio;
+      if(r.codigo) hist[key].codigo = r.codigo;
+      if(r.proveedor) hist[key].proveedor = r.proveedor;
+    });
+  });
+  return Object.values(hist).sort((a,b) => b.veces - a.veces);
+}
+
+function autoCompleteRef(val) {
+  if(val.length < 2) { document.getElementById('refSuggestions').innerHTML=''; return; }
+  const hist = getRefaccionesHistorial();
+  const matches = hist.filter(r => r.nombre.toLowerCase().includes(val.toLowerCase())).slice(0,5);
+  if(!matches.length) { document.getElementById('refSuggestions').innerHTML=''; return; }
+  document.getElementById('refSuggestions').innerHTML = matches.map(r =>
+    `<div class="ref-suggest" onclick="fillRef('${r.nombre.replace(/'/g,"\'")}','${r.codigo.replace(/'/g,"\'")}','${r.proveedor.replace(/'/g,"\'")}')">
+      <span style="font-weight:600">${r.nombre}</span>
+      ${r.codigo?`<span style="color:var(--text3);font-size:11px"> · ${r.codigo}</span>`:''}
+      ${r.proveedor?`<span style="color:var(--text3);font-size:11px"> · ${r.proveedor}</span>`:''}
+      <span style="color:var(--text3);font-size:10px;float:right">usado ${r.veces}x</span>
+    </div>`
+  ).join('');
+}
+
+function fillRef(nombre, codigo, proveedor) {
+  document.getElementById('rNom').value = nombre;
+  document.getElementById('rCod').value = codigo;
+  document.getElementById('rProv').value = proveedor;
+  document.getElementById('refSuggestions').innerHTML = '';
+  document.getElementById('rNom').focus();
+}
+
+function _renderRefHistList(hist, filter) {
+  const q = (filter||'').toLowerCase();
+  const filtered = q ? hist.filter(r =>
+    r.nombre.toLowerCase().includes(q) || (r.codigo||'').toLowerCase().includes(q) || (r.proveedor||'').toLowerCase().includes(q)
+  ) : hist;
+  if(!filtered.length) {
+    document.getElementById('refHistList').innerHTML =
+      '<div style="padding:20px;text-align:center;color:var(--text3)">No se encontraron refacciones</div>';
+    return;
+  }
+  document.getElementById('refHistList').innerHTML = filtered.map(r => `
+    <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px"
+      onclick="if(typeof fillRef!=='undefined'){fillRef('${r.nombre.replace(/'/g,"\'")}','${(r.codigo||'').replace(/'/g,"\'")}','${(r.proveedor||'').replace(/'/g,"\'")}');closeM('mRefHist');}">
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:13px">${r.nombre}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap">
+          ${r.codigo?`<span>📦 ${r.codigo}</span>`:''}
+          ${r.proveedor?`<span>🏪 ${r.proveedor}</span>`:''}
+          <span>🔄 ${r.veces} uso${r.veces>1?'s':''}</span>
+          ${r.ultimaOrden?`<span>📋 ${r.ultimaOrden}</span>`:''}
+        </div>
+      </div>
+      <span style="color:var(--border);font-size:18px">›</span>
+    </div>`
+  ).join('');
+}
+function filterRefHist(q) {
+  _renderRefHistList(getRefaccionesHistorial(), q);
+}
+function openRefHistorial() {
+  const hist = getRefaccionesHistorial();
+  const searchEl = document.getElementById('refHistSearch');
+  if(searchEl) searchEl.value = '';
+  if(!hist.length) {
+    document.getElementById('refHistList').innerHTML =
+      '<div style="padding:24px;text-align:center;color:var(--text3)">📭 Aún no hay refacciones registradas.<br><br>Las refacciones aparecerán aquí cuando las registres en una orden de trabajo.</div>';
+  } else {
+    _renderRefHistList(hist, '');
+  }
+  openM('mRefHist');
+}
+
+
+function renderRefCatalogo() {
+  const hist = getRefaccionesHistorial();
+  const el = document.getElementById('refCatalogoContent');
+  if(!el) return;
+  if(!hist.length) {
+    el.innerHTML = '<div style="color:var(--text3);text-align:center;padding:24px">Sin refacciones registradas</div>';
+    return;
+  }
+  // Group by proveedor
+  const byProv = {};
+  hist.forEach(r => {
+    const p = r.proveedor || 'Sin proveedor';
+    if(!byProv[p]) byProv[p] = [];
+    byProv[p].push(r);
+  });
+  el.innerHTML = `
+    <div style="margin-bottom:10px;font-size:12px;color:var(--text2)">
+      ${hist.length} refacciones distintas · ${hist.reduce((s,r)=>s+r.veces,0)} usos totales
+    </div>
+    <div style="overflow-x:auto">
+    <table class="tbl">
+      <thead><tr>
+        <th>Refacción</th><th>Código</th><th>Proveedor</th><th>Usos</th><th>Última orden</th>
+      </tr></thead>
+      <tbody>
+        ${hist.map(r=>`<tr>
+          <td style="font-weight:600">${r.nombre}</td>
+          <td style="font-family:monospace;font-size:12px">${r.codigo||'—'}</td>
+          <td>${r.proveedor||'—'}</td>
+          <td style="text-align:center;color:var(--blue);font-weight:700">${r.veces}</td>
+          <td style="font-size:11px;color:var(--text3)">${r.ultimaOrden||'—'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>`;
+}
+
+
+function updateChkProgress() {
+  const d = currentChk;
+  if(!d || !d.secs) return;
+  const total = d.secs.reduce((s, sec) => s + sec.items.length, 0);
+  const done = Object.keys(d.items||{}).length;
+  const pct = total ? Math.round(done/total*100) : 0;
+  const bar = document.getElementById('chkProgBar');
+  const lbl = document.getElementById('chkProgLabel');
+  if(bar) bar.style.width = pct + '%';
+  if(bar) bar.style.background = pct === 100 ? 'var(--green)' : pct > 50 ? 'var(--blue)' : 'var(--acc)';
+  if(lbl) lbl.textContent = done + ' / ' + total + ' ítems';
+  // Update section progress too
+  d.secs.forEach(sec => {
+    const secDone = sec.items.filter((_,i) => d.items[sec.sec+'__'+i]).length;
+    const el = document.getElementById('prog_' + sec.sec.replace(/\W/g,'_'));
+    if(el) el.textContent = secDone + '/' + sec.items.length;
+  });
+}
+
 // INIT
 renderHomeStats();
 checkUrgent();
@@ -3012,10 +3169,22 @@ function stopAutosave(){clearInterval(autosaveIv);autosaveIv=null;}
 function initOffline(){
   const badge=document.getElementById('offlineBadge');
   function upd(){
-    if(navigator.onLine){badge.textContent='● En línea';badge.classList.remove('offline');badge.classList.add('show');setTimeout(()=>badge.classList.remove('show'),2000);}
-    else{badge.textContent='● Sin conexión — datos guardados localmente';badge.classList.add('offline','show');}
+    if(navigator.onLine){
+      badge.textContent='● En línea';
+      badge.style.background='';
+      badge.classList.remove('offline');
+      badge.classList.add('show');
+      setTimeout(()=>badge.classList.remove('show'),3000);
+    } else {
+      badge.innerHTML='📵 Sin conexión — <strong>tus datos están guardados</strong> y se sincronizarán cuando regrese el internet';
+      badge.style.background='#7f1d1d';
+      badge.classList.add('offline','show');
+    }
   }
-  window.addEventListener('online',upd);window.addEventListener('offline',upd);
+  window.addEventListener('online', upd);
+  window.addEventListener('offline', upd);
+  // Check on load
+  if(!navigator.onLine) upd();
 }
 // ── SERVICE WORKER (PWA) ──────────────────────────────────────
 function registerSW(){
@@ -3101,6 +3270,20 @@ function registerSW(){
     </div>
     <div id="syncLog" style="font-size:11px;color:var(--text3);max-height:120px;overflow-y:auto;background:var(--bg2);padding:8px;border-radius:var(--radius-sm)"></div>
     <div class="mfooter"><button class="btn btn-s" onclick="closeM('mSheets')">Cerrar</button></div>
+  </div>
+</div>
+
+
+<!-- HISTORIAL REFACCIONES -->
+<div class="moverlay" id="mRefHist">
+  <div class="mbox" style="width:500px;max-width:95vw">
+    <div class="mt">🔩 Catálogo de refacciones</div>
+    <div class="fg" style="margin-bottom:8px">
+      <input type="text" id="refHistSearch" placeholder="🔍 Buscar refacción o código..." 
+        oninput="filterRefHist(this.value)" style="font-size:13px">
+    </div>
+    <div style="max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm)" id="refHistList"></div>
+    <div class="mfooter"><button class="btn btn-s" onclick="closeM('mRefHist')">Cerrar</button></div>
   </div>
 </div>
 
