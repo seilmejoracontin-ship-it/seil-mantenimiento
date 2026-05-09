@@ -475,7 +475,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
           <div class="hbtn-ic ic-blue">📊</div>
           <div><div class="hbtn-label">Dashboard &amp; Métricas</div><div class="hbtn-desc">Indicadores de mantenimiento y checklists</div></div>
         </div>
-        <div class="hbtn" onclick="openRefHistorial()" style="cursor:pointer">
+        <div class="hbtn" onclick="goRefacciones()">
           <div class="hbtn-ic ic-blue">🔩</div>
           <div><div class="hbtn-label">Refacciones</div><div class="hbtn-desc">Catálogo e historial de refacciones</div></div>
         </div>
@@ -3078,6 +3078,131 @@ function updateChkProgress() {
   });
 }
 
+
+// ════════════════════════════════════════════════
+// REFACCIONES SCREEN
+// ════════════════════════════════════════════════
+let _rfSortCol = 'fecha';
+let _rfSortAsc = false;
+
+function goRefacciones() {
+  renderRefScreen();
+  ss('refaccionesScreen', 'Refacciones');
+}
+
+function clearRefFilters() {
+  const s = document.getElementById('rfSearch');
+  const e = document.getElementById('rfEquipo');
+  const p = document.getElementById('rfProv');
+  if(s) s.value = '';
+  if(e) e.value = '';
+  if(p) p.value = '';
+  renderRefScreen();
+}
+
+function sortRefBy(col) {
+  if(_rfSortCol === col) _rfSortAsc = !_rfSortAsc;
+  else { _rfSortCol = col; _rfSortAsc = true; }
+  renderRefScreen();
+}
+
+function renderRefScreen() {
+  const all = getAllRefacciones();
+  
+  // Populate filters
+  const equipos = [...new Set(all.map(r=>r.equipo).filter(Boolean))].sort();
+  const eqSel = document.getElementById('rfEquipo');
+  const eqVal = eqSel?.value||'';
+  if(eqSel) {
+    eqSel.innerHTML = '<option value="">Todos los equipos</option>' +
+      equipos.map(e=>`<option value="${e}" ${e===eqVal?'selected':''}>${e}</option>`).join('');
+  }
+  const provs = [...new Set(all.map(r=>r.proveedor).filter(Boolean))].sort();
+  const pvSel = document.getElementById('rfProv');
+  const pvVal = pvSel?.value||'';
+  if(pvSel) {
+    pvSel.innerHTML = '<option value="">Todos los proveedores</option>' +
+      provs.map(p=>`<option value="${p}" ${p===pvVal?'selected':''}>${p}</option>`).join('');
+  }
+
+  // Filter
+  const q = (document.getElementById('rfSearch')?.value||'').toLowerCase();
+  const eq = eqVal;
+  const pv = pvVal;
+  let filtered = all.filter(r =>
+    (!q || r.nombre.toLowerCase().includes(q) || 
+           r.codigo.toLowerCase().includes(q) || 
+           r.proveedor.toLowerCase().includes(q)) &&
+    (!eq || r.equipo === eq) &&
+    (!pv || r.proveedor === pv)
+  );
+
+  // Sort
+  filtered.sort((a,b) => {
+    let va = a[_rfSortCol]||'', vb = b[_rfSortCol]||'';
+    if(_rfSortCol === 'cant' || _rfSortCol === 'costo') {
+      va = parseFloat(va)||0; vb = parseFloat(vb)||0;
+    }
+    return _rfSortAsc ? (va>vb?1:va<vb?-1:0) : (va<vb?1:va>vb?-1:0);
+  });
+
+  // Update sort indicators
+  ['nombre','codigo','proveedor','equipo','cant','costo','fecha'].forEach(col => {
+    const el = document.getElementById('rfSort_'+col);
+    if(el) el.textContent = _rfSortCol===col ? (_rfSortAsc?'↑':'↓') : '';
+  });
+
+  // Summary cards
+  const totalUsos = filtered.reduce((s,r)=>s+(parseFloat(r.cant)||1),0);
+  const totalCosto = filtered.reduce((s,r)=>s+(parseFloat(r.costo)||0),0);
+  const uniqRef = new Set(filtered.map(r=>r.nombre.toLowerCase())).size;
+  const resumen = document.getElementById('rfResumen');
+  if(resumen) resumen.innerHTML = [
+    {label:'Registros', val:filtered.length, color:'var(--blue)'},
+    {label:'Tipos distintos', val:uniqRef, color:'var(--navy)'},
+    {label:'Unidades totales', val:totalUsos, color:'var(--green)'},
+    {label:'Costo total', val:totalCosto>0?'$'+totalCosto.toFixed(2):'—', color:'var(--acc)'},
+  ].map(c=>`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 14px;min-width:100px">
+    <div style="font-size:11px;color:var(--text2)">${c.label}</div>
+    <div style="font-size:18px;font-weight:700;color:${c.color}">${c.val}</div>
+  </div>`).join('');
+
+  // Table rows
+  const tbody = document.getElementById('rfBody');
+  if(!tbody) return;
+  const count = document.getElementById('rfCount');
+  if(count) count.textContent = filtered.length + ' registro' + (filtered.length!==1?'s':'') +
+    (all.length !== filtered.length ? ' de ' + all.length + ' totales' : '');
+
+  if(!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text3)">' +
+      (all.length ? '🔍 Sin resultados para esos filtros' : '📭 Aún no hay refacciones registradas.<br><br>Aparecerán aquí cuando las registres en una orden de trabajo.') +
+      '</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(r => `
+    <tr>
+      <td style="font-weight:600">${r.nombre}</td>
+      <td><span style="font-family:monospace;font-size:12px;background:var(--bg2);padding:1px 6px;border-radius:4px">${r.codigo||'—'}</span></td>
+      <td>${r.proveedor||'—'}</td>
+      <td><span class="badge" style="font-size:10px;background:var(--bg2);color:var(--navy);border-color:var(--border)">${r.equipo}</span></td>
+      <td style="font-size:11px"><a href="#" onclick="event.preventDefault();openOrderByFolio('${r.folio}')" style="color:var(--blue)">${r.folio}</a></td>
+      <td style="text-align:center;font-weight:600">${r.cant}</td>
+      <td style="text-align:right">${r.costo>0?'<span style="color:var(--green)">$'+r.costo.toFixed(2)+'</span>':'—'}</td>
+      <td style="font-size:11px;color:var(--text3)">${r.fecha?fmtD(r.fecha):'—'}</td>
+    </tr>`).join('');
+}
+
+function openOrderByFolio(folio) {
+  const o = orders.find(x=>x.folio===folio);
+  if(!o) return;
+  currentOrder = o;
+  renderWR();
+  ss('workRecord','Registro — '+folio);
+  document.getElementById('wrBack').onclick = () => { goRefacciones(); };
+}
+
 // INIT
 renderHomeStats();
 checkUrgent();
@@ -3358,6 +3483,64 @@ function registerSW(){
     </div>
     <div style="max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm)" id="refHistList"></div>
     <div class="mfooter"><button class="btn btn-s" onclick="closeM('mRefHist')">Cerrar</button></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════ REFACCIONES SCREEN ═══ -->
+<div class="screen" id="refaccionesScreen">
+  <div class="phdr">
+    <button class="btn btn-s" onclick="goHome()">← Inicio</button>
+    <div>
+      <div class="ptitle">🔩 Refacciones</div>
+      <div class="psub">Historial de todas las refacciones utilizadas</div>
+    </div>
+  </div>
+  <div class="ca">
+    <!-- FILTROS -->
+    <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:8px;margin-bottom:12px;align-items:end">
+      <div style="position:relative">
+        <input type="text" id="rfSearch" placeholder="🔍 Buscar refacción, código o proveedor..." 
+          oninput="renderRefScreen()" style="width:100%;padding-left:8px">
+      </div>
+      <select id="rfEquipo" onchange="renderRefScreen()" style="min-width:140px">
+        <option value="">Todos los equipos</option>
+      </select>
+      <select id="rfProv" onchange="renderRefScreen()" style="min-width:140px">
+        <option value="">Todos los proveedores</option>
+      </select>
+      <button class="btn btn-s" onclick="clearRefFilters()">✕ Limpiar</button>
+    </div>
+    <!-- RESUMEN -->
+    <div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap" id="rfResumen"></div>
+    <!-- TABLA -->
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius)">
+      <table class="tbl" style="width:100%;min-width:700px">
+        <thead>
+          <tr>
+            <th onclick="sortRefBy('nombre')" style="cursor:pointer;user-select:none">
+              Refacción <span id="rfSort_nombre"></span></th>
+            <th onclick="sortRefBy('codigo')" style="cursor:pointer;user-select:none">
+              Código <span id="rfSort_codigo"></span></th>
+            <th onclick="sortRefBy('proveedor')" style="cursor:pointer;user-select:none">
+              Proveedor <span id="rfSort_proveedor"></span></th>
+            <th onclick="sortRefBy('equipo')" style="cursor:pointer;user-select:none">
+              Equipo <span id="rfSort_equipo"></span></th>
+            <th>Orden</th>
+            <th onclick="sortRefBy('cant')" style="cursor:pointer;user-select:none;text-align:center">
+              Cant. <span id="rfSort_cant"></span></th>
+            <th onclick="sortRefBy('costo')" style="cursor:pointer;user-select:none;text-align:right">
+              Costo <span id="rfSort_costo"></span></th>
+            <th onclick="sortRefBy('fecha')" style="cursor:pointer;user-select:none">
+              Fecha <span id="rfSort_fecha"></span></th>
+          </tr>
+        </thead>
+        <tbody id="rfBody">
+          <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text3)">Sin registros</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px" id="rfCount"></div>
   </div>
 </div>
 
