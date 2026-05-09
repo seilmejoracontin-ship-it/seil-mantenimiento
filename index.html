@@ -2904,6 +2904,80 @@ function fillRef(nombre, codigo, proveedor) {
   document.getElementById('rNom').focus();
 }
 
+
+function getAllRefacciones() {
+  const rows = [];
+  orders.forEach(o => {
+    (o.refacciones||[]).forEach(r => {
+      if(!r.nombre) return;
+      rows.push({
+        nombre: r.nombre, codigo: r.codigo||'', proveedor: r.proveedor||'',
+        equipo: o.equipo||'', folio: o.folio||'', cant: r.cant||1,
+        costo: parseFloat(r.costo||0), fecha: o.createdAt||''
+      });
+    });
+  });
+  return rows.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+}
+
+function filterRefHist() {
+  const q = (document.getElementById('refHistSearch')?.value||'').toLowerCase();
+  const eq = document.getElementById('refHistEquipo')?.value||'';
+  const pv = document.getElementById('refHistProv')?.value||'';
+  const all = getAllRefacciones();
+  const filtered = all.filter(r =>
+    (!q || r.nombre.toLowerCase().includes(q) || r.codigo.toLowerCase().includes(q)) &&
+    (!eq || r.equipo === eq) && (!pv || r.proveedor === pv)
+  );
+  const count = document.getElementById('refHistCount');
+  if(count) count.textContent = filtered.length + ' registros' + (all.length !== filtered.length ? ' de ' + all.length + ' totales' : '');
+  const tbody = document.getElementById('refHistBody');
+  if(!tbody) return;
+  if(!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--text3)">Sin refacciones con esos filtros</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map(r => `<tr style="cursor:pointer" onclick="fillRef('${r.nombre.replace(/'/g,"\'")}','${r.codigo.replace(/'/g,"\'")}','${r.proveedor.replace(/'/g,"\'")}');closeM('mRefHist')">
+    <td style="font-weight:600">${r.nombre}</td>
+    <td style="font-family:monospace;font-size:11px">${r.codigo||'—'}</td>
+    <td>${r.proveedor||'—'}</td>
+    <td><span class="badge" style="font-size:10px;background:var(--bg2)">${r.equipo}</span></td>
+    <td style="font-size:11px;color:var(--text2)">${r.folio}</td>
+    <td style="text-align:center">${r.cant}</td>
+    <td style="text-align:right">${r.costo>0?'$'+r.costo.toFixed(2):'—'}</td>
+    <td style="font-size:11px;color:var(--text3)">${r.fecha?fmtD(r.fecha):'—'}</td>
+  </tr>`).join('');
+}
+
+function openRefHistorial() {
+  const all = getAllRefacciones();
+  const equipos = [...new Set(all.map(r=>r.equipo).filter(Boolean))].sort();
+  const eqSel = document.getElementById('refHistEquipo');
+  if(eqSel) eqSel.innerHTML = '<option value="">Todos los equipos</option>' +
+    equipos.map(e=>`<option value="${e}">${e}</option>`).join('');
+  const provs = [...new Set(all.map(r=>r.proveedor).filter(Boolean))].sort();
+  const pvSel = document.getElementById('refHistProv');
+  if(pvSel) pvSel.innerHTML = '<option value="">Todos los proveedores</option>' +
+    provs.map(p=>`<option value="${p}">${p}</option>`).join('');
+  const search = document.getElementById('refHistSearch');
+  if(search) search.value = '';
+  if(!all.length) {
+    const tbody = document.getElementById('refHistBody');
+    if(tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text3)">📭 Aún no hay refacciones registradas.<br><br>Aparecerán aquí cuando las registres en una orden de trabajo.</td></tr>';
+  } else {
+    filterRefHist();
+  }
+  openM('mRefHist');
+}
+
+function fillRef(nombre, codigo, proveedor) {
+  document.getElementById('rNom').value = nombre;
+  document.getElementById('rCod').value = codigo;
+  document.getElementById('rProv').value = proveedor;
+  document.getElementById('refSuggestions').innerHTML = '';
+  document.getElementById('rNom').focus();
+}
+
 function _renderRefHistList(hist, filter) {
   const q = (filter||'').toLowerCase();
   const filtered = q ? hist.filter(r =>
