@@ -479,6 +479,10 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
           <div class="hbtn-ic ic-blue">🔩</div>
           <div><div class="hbtn-label">Refacciones</div><div class="hbtn-desc">Catálogo e historial de refacciones</div></div>
         </div>
+        <div class="hbtn" onclick="goRequisiciones()">
+          <div class="hbtn-ic ic-grn">📦</div>
+          <div><div class="hbtn-label">Requisiciones</div><div class="hbtn-desc">Seguimiento de tiempos con Compras</div></div>
+        </div>
       </div>
     </div>
     <div class="home-right">
@@ -1313,8 +1317,8 @@ function renderHomeStats() {
     <div class="home-stat"><div class="home-stat-n" style="color:rgba(255,255,255,.6)">${pend}</div><div class="home-stat-l">Pendientes</div></div>
     <div class="home-stat"><div class="home-stat-n stat-grn">${cer}</div><div class="home-stat-l">Cerrados</div></div>
   `;
+  checkAlerts();
 }
-
 // ════════════════════════════════════════════════
 // JEFE DASH
 // ════════════════════════════════════════════════
@@ -1595,7 +1599,7 @@ function resumeOrder() {
   currentOrder.status='En Proceso'; currentOrder.pausedAt=null;
   currentOrder.bitacora=currentOrder.bitacora||[];
   currentOrder.bitacora.push({ts:now.toISOString(),autor:currentTech?currentTech.name:'Sistema',text:'Trabajo reanudado',sistema:true});
-  sv(); renderWR();
+  sv(); renderWR(); _autoSync();
 }
 function closeOrder() {
   if(!confirm('¿Terminaste el trabajo? \n\nSe abrirá el checklist de liberación.\nUna vez cerrado, solo el Jefe de Taller puede editar.')) return;
@@ -1667,7 +1671,7 @@ function confirmPause() {
   currentOrder.status='Pausa Refacción'; currentOrder.pauseReason=r; currentOrder.pausedAt=new Date().toISOString();
   currentOrder.bitacora=currentOrder.bitacora||[];
   currentOrder.bitacora.push({ts:new Date().toISOString(),autor:currentTech?currentTech.name:'Sistema',text:`PAUSA: ${r}`,sistema:true});
-  sv(); closeM('mPause'); renderWR();
+  sv(); closeM('mPause'); renderWR(); _autoSync();
 }
 function openDel(id) { delTargetId=id; document.getElementById('delPass').value=''; document.getElementById('delErr').style.display='none'; openM('mDel'); }
 function confirmDel() {
@@ -1839,6 +1843,7 @@ function renderChkHist() {
 
 function openChkDetail(id, fromOrder, fromBit) {
   const chk=checklists.find(c=>c.id===id); if(!chk) return;
+  window._currentChkId = id;
   document.getElementById('chkDetailBack').onclick = fromOrder
     ? ()=>{renderWR();ss('workRecord','Registro');}
     : fromBit
@@ -1872,6 +1877,9 @@ function openChkDetail(id, fromOrder, fromBit) {
     html+='</div>';
   });
   document.getElementById('chkDetailBody').innerHTML=html;
+  // Wire photos button
+  const photosBtn = document.getElementById('chkDetailPhotos');
+  if(photosBtn) photosBtn.onclick = () => openPhotos(chk.folio);
   ss('chkDetail',`Checklist — ${chk.equipId}`);
 }
 
@@ -2037,11 +2045,11 @@ function _genChkPDFData(chk) {
   doc.setFillColor(13,43,94); doc.rect(0,0,W,28,'F');
   try{doc.addImage('https://seilmejoracontin-ship-it.github.io/seil-mantenimiento/seil_logo.png','JPEG',m,3,22,22);}catch(e){}
   doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold'); doc.setFontSize(13);
+  doc.setFont('helvetica','bold'); doc.setFontSize(15);
   doc.text('SEIL Rigging & Millwright',40,11);
-  doc.setFont('helvetica','normal'); doc.setFontSize(8);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10);
   doc.text('Checklist de Liberacion - Registro de Mantenimiento',40,18);
-  doc.setFont('helvetica','bold'); doc.setFontSize(9);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11);
   doc.text(chk.folio,W-m,10,{align:'right'});
   doc.setFillColor(192,57,43); doc.rect(0,28,W,2,'F');
   y=38;
@@ -2052,16 +2060,16 @@ function _genChkPDFData(chk) {
   info.forEach(([l,v],i)=>{
     const col=i<4?m:m+95;
     const row=i<4?y+(i*6):y+((i-4)*6);
-    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(30,30,30);
+    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(30,30,30);
     doc.text(l+':',col,row);
     doc.setFont('helvetica','normal');doc.text(String(v),col+28,row);
   });
   y+=28;
   if(chk.observacionesText){
     doc.setFillColor(230,240,255);doc.rect(m,y,W-2*m,8,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(13,43,94);
+    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(13,43,94);
     doc.text('OBSERVACIONES GENERALES',m+2,y+5.5);y+=10;
-    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(30,30,30);
+    doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(30,30,30);
     const obsL=doc.splitTextToSize(clean(chk.observacionesText),W-2*m);
     obsL.forEach(l=>{if(y>280){doc.addPage();y=15;}doc.text(l,m,y);y+=4;});
     y+=4;
@@ -2070,7 +2078,7 @@ function _genChkPDFData(chk) {
   tmpl.secs.forEach(sec=>{
     if(y>265){doc.addPage();y=15;}
     doc.setFillColor(13,43,94);doc.rect(m,y-3,W-2*m,7,'F');
-    doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(8);
+    doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(10);
     doc.text(clean(sec.sec),m+2,y+1.5);y+=8;
     sec.items.forEach((item,i)=>{
       if(y>280){doc.addPage();y=15;}
@@ -2082,14 +2090,14 @@ function _genChkPDFData(chk) {
       if(i%2===0){doc.setFillColor(248,249,252);doc.rect(m,y-3,W-2*m,6,'F');}
       const br=val==='ok'?[220,250,220]:val==='fail'?[255,220,220]:[240,240,240];
       doc.setFillColor(br[0],br[1],br[2]);doc.rect(m,y-3,18,6,'F');
-      doc.setFont('helvetica','bold');doc.setFontSize(7);
+      doc.setFont('helvetica','bold');doc.setFontSize(9);
       const tc=val==='ok'?[22,120,74]:val==='fail'?[192,57,43]:[100,100,100];
       doc.setTextColor(tc[0],tc[1],tc[2]);
       doc.text(statusTxt,m+1,y+1.5);
-      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(30,30,30);
+      doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(30,30,30);
       doc.text(clean(item),m+20,y+1.5);
       if(obsVal){
-        doc.setFontSize(7);doc.setTextColor(80,80,80);
+        doc.setFontSize(9);doc.setTextColor(80,80,80);
         doc.text('Obs: '+clean(obsVal),m+20,y+6);
         y+=9;
       }else{y+=6;}
@@ -2099,13 +2107,13 @@ function _genChkPDFData(chk) {
   const sy=Math.min(Math.max(y+10,250),280);
   doc.setDrawColor(150,150,150);
   doc.line(m,sy,m+55,sy);doc.line(W-m-55,sy,W-m,sy);
-  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(100,100,100);
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(100,100,100);
   doc.text('Firma del tecnico',m,sy+4);
   doc.text(clean(chk.tecnico),m,sy+8);
   doc.text('Vo.Bo. Jefe de Taller',W-m-55,sy+4);
   doc.text('Iram Cisneros',W-m-55,sy+8);
   doc.setFillColor(13,43,94);doc.rect(0,287,W,10,'F');
-  doc.setTextColor(255,255,255);doc.setFontSize(7);
+  doc.setTextColor(255,255,255);doc.setFontSize(9);
   doc.text('SEIL Rigging & Millwright - Sistema de Mantenimiento V3',m,293);
   doc.text(chk.folio,W-m,293,{align:'right'});
   doc.save(chk.folio+'.pdf');
@@ -2126,13 +2134,13 @@ function genOrderPDF() {
   let y=0;
   doc.setFillColor(13,43,94);doc.rect(0,0,W,28,'F');
   try{doc.addImage('https://seilmejoracontin-ship-it.github.io/seil-mantenimiento/seil_logo.png','JPEG',m,3,22,22);}catch(e){}
-  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(13);
+  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(15);
   doc.text('SEIL Rigging & Millwright',40,11);
-  doc.setFont('helvetica','normal');doc.setFontSize(8);
+  doc.setFont('helvetica','normal');doc.setFontSize(10);
   doc.text('Orden de Mantenimiento',40,18);
-  doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(255,200,200);
+  doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(255,200,200);
   doc.text(o.folio,W-m,10,{align:'right'});
-  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(200,220,255);
+  doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(200,220,255);
   doc.text(clean(o.equipo)+' — '+clean(o.tipo),W-m,18,{align:'right'});
   doc.setFillColor(192,57,43);doc.rect(0,28,W,2,'F');
   y=38;
@@ -2147,27 +2155,27 @@ function genOrderPDF() {
   inf.forEach(([l,v],i)=>{
     const col=i%2===0?m:m+(W-2*m)/2;
     if(i%2===0&&i>0)y+=6;
-    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(30,30,30);
+    doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(30,30,30);
     doc.text(l+':',col,y);
     doc.setFont('helvetica','normal');doc.text(String(v),col+30,y);
   });
   y+=10;
   doc.setFillColor(230,240,255);doc.rect(m,y,W-2*m,7,'F');
-  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(13,43,94);
+  doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(13,43,94);
   doc.text('REPORTE DE FALLA / DESCRIPCION',m+2,y+5);y+=9;
-  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(30,30,30);
+  doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(30,30,30);
   doc.splitTextToSize(clean(o.reporte||''),W-2*m).forEach(l=>{if(y>278){doc.addPage();y=15;}doc.text(l,m,y);y+=4;});
   y+=5;
   if(o.bitacora&&o.bitacora.filter(b=>!b.sistema).length){
     if(y>255){doc.addPage();y=15;}
     doc.setFillColor(13,43,94);doc.rect(m,y,W-2*m,7,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(255,255,255);
     doc.text('BITACORA DE AVANCES',m+2,y+5);y+=9;
     o.bitacora.filter(b=>!b.sistema).forEach(b=>{
       if(y>272){doc.addPage();y=15;}
-      doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,100,100);
+      doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(100,100,100);
       doc.text(fmtDF(b.ts)+' — '+clean(b.autor)+(b.editedAt?' (editado)':''),m,y);y+=4;
-      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(30,30,30);
+      doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(30,30,30);
       doc.splitTextToSize(clean(b.text),W-2*m-3).forEach(l=>{if(y>278){doc.addPage();y=15;}doc.text(l,m+3,y);y+=4;});
       y+=2;
     });y+=3;
@@ -2175,9 +2183,9 @@ function genOrderPDF() {
   if(o.refacciones&&o.refacciones.length){
     if(y>248){doc.addPage();y=15;}
     doc.setFillColor(13,43,94);doc.rect(m,y,W-2*m,7,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(255,255,255);
     doc.text('REFACCIONES Y MATERIALES',m+2,y+5);y+=9;
-    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,100,100);
+    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(100,100,100);
     ['Refaccion','Cant.','Codigo','Proveedor'].forEach((h,i)=>doc.text(h,[m,m+65,m+80,m+115][i],y));
     y+=4;doc.setDrawColor(200,200,200);doc.line(m,y,W-m,y);y+=3;
     doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
@@ -2192,13 +2200,13 @@ function genOrderPDF() {
   if(o.comentarios){
     if(y>258){doc.addPage();y=15;}
     doc.setFillColor(255,248,220);doc.rect(m,y,W-2*m,7,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(120,80,0);
+    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(120,80,0);
     doc.text('COMENTARIOS IMPORTANTES',m+2,y+5);y+=9;
-    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(30,30,30);
+    doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(30,30,30);
     doc.splitTextToSize(clean(o.comentarios),W-2*m).forEach(l=>{if(y>278){doc.addPage();y=15;}doc.text(l,m,y);y+=4;});
   }
   doc.setFillColor(13,43,94);doc.rect(0,287,W,10,'F');
-  doc.setTextColor(255,255,255);doc.setFontSize(7);
+  doc.setTextColor(255,255,255);doc.setFontSize(9);
   doc.text('SEIL Rigging & Millwright - Sistema de Mantenimiento V3',m,293);
   doc.text(o.folio,W-m,293,{align:'right'});
   doc.save(o.folio+'.pdf');
@@ -2218,9 +2226,9 @@ function genBitacoraPDF(){
   // Header navy
   doc.setFillColor(13,43,94);doc.rect(0,0,W,24,'F');
   try{doc.addImage('https://seilmejoracontin-ship-it.github.io/seil-mantenimiento/seil_logo.png','JPEG',m,2,19,19);}catch(e){}
-  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(13);
+  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(15);
   doc.text('SEIL Rigging & Millwright',36,10);
-  doc.setFont('helvetica','normal');doc.setFontSize(9);
+  doc.setFont('helvetica','normal');doc.setFontSize(11);
   doc.text('Bitacora de Mantenimiento -- '+eqId,36,17);
   doc.text(fmtD(new Date().toISOString()),W-m,10,{align:'right'});
   doc.setFillColor(192,57,43);doc.rect(0,24,W,2,'F');
@@ -2228,7 +2236,7 @@ function genBitacoraPDF(){
   // Equipo info
   const eq=EQUIPOS.find(e=>e.id===eqId);
   if(eq){
-    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(30,30,30);
+    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(30,30,30);
     doc.text('Equipo: '+eqId+' · '+clean(eq.tipo)+' · '+clean(eq.marca)+' '+clean(eq.modelo),m,y);y+=7;
   }
   // ── CHECKLISTS TABLE ────────────────────────────────────────
@@ -2237,7 +2245,7 @@ function genBitacoraPDF(){
     if(chkList.length){
       if(y>165){doc.addPage();y=15;}
       doc.setFillColor(13,43,94);doc.rect(m,y,W-2*m,7,'F');
-      doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(8);
+      doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(10);
       const cols=[m,m+24,m+55,m+78,m+98,m+114,m+130];
       ['Folio','EquipoID','TipoChecklist','Fecha','Horometro','OK','Fallas'].forEach((h,i)=>doc.text(h,cols[i]+1,y+5));
       doc.text('Observaciones',m+146,y+5);
@@ -2262,7 +2270,7 @@ function genBitacoraPDF(){
         const rowH=Math.max(7,obsLines.length*4+4);
         if(y+rowH>196){doc.addPage();y=15;}
         if(ri%2===0){doc.setFillColor(248,249,252);doc.rect(m,y,W-2*m,rowH,'F');}
-        doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(192,57,43);
+        doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(192,57,43);
         doc.text(c.folio,cols[0]+1,y+4);
         doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
         doc.text(c.equipId,cols[1]+1,y+4);
@@ -2274,7 +2282,7 @@ function genBitacoraPDF(){
         doc.setTextColor(22,120,74);doc.text(String(oks),cols[5]+1,y+4);
         doc.setTextColor(fails>0?192:30,fails>0?57:30,fails>0?43:30);
         doc.text(String(fails),cols[6]+1,y+4);
-        doc.setTextColor(30,30,30);doc.setFontSize(7);
+        doc.setTextColor(30,30,30);doc.setFontSize(9);
         obsLines.forEach((l,li)=>doc.text(l,m+146,y+4+(li*4)));
         doc.setDrawColor(220,220,220);doc.rect(m,y,W-2*m,rowH,'S');
         y+=rowH;
@@ -2288,7 +2296,7 @@ function genBitacoraPDF(){
     if(ordList.length){
       if(y>165){doc.addPage();y=15;}
       doc.setFillColor(13,43,94);doc.rect(m,y,W-2*m,7,'F');
-      doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(8);
+      doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(10);
       doc.text('ORDENES DE MANTENIMIENTO',m+2,y+5);y+=9;
       ['Folio','Tipo','Fecha','Tecnico','Horo.','Descripcion / Bitacora'].forEach((h,i)=>
         doc.text(h,[m,m+24,m+44,m+64,m+84,m+96][i]+1,y));
@@ -2303,7 +2311,7 @@ function genBitacoraPDF(){
         const rowH=Math.max(7,lines.length*4+4);
         if(y+rowH>196){doc.addPage();y=15;}
         if(ri%2===0){doc.setFillColor(248,249,252);doc.rect(m,y,W-2*m,rowH,'F');}
-        doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(13,43,94);
+        doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(13,43,94);
         doc.text(o.folio,m+1,y+4);
         doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
         doc.text(clean(o.tipo||''),m+24+1,y+4);
@@ -2318,7 +2326,7 @@ function genBitacoraPDF(){
   }
   // Footer
   doc.setFillColor(13,43,94);doc.rect(0,200,W,7,'F');
-  doc.setTextColor(255,255,255);doc.setFont('helvetica','normal');doc.setFontSize(7);
+  doc.setTextColor(255,255,255);doc.setFont('helvetica','normal');doc.setFontSize(9);
   doc.text('SEIL Rigging & Millwright - Bitacora Maestra - '+eqId,m,205);
   doc.text('Generado: '+fmtDF(new Date().toISOString()),W-m,205,{align:'right'});
   doc.save('Bitacora_'+eqId+'_'+new Date().toISOString().split('T')[0]+'.pdf');
@@ -2330,31 +2338,108 @@ function genBitacoraPDF(){
 // ════════════════════════════════════════════════
 function openExport() { openM('mExport'); }
 function exportData() {
-  const data=JSON.stringify({orders,checklists,exportDate:new Date().toISOString()},null,2);
-  const a=document.createElement('a');
-  a.href='data:application/json,'+encodeURIComponent(data);
-  a.download='SEIL_backup_'+new Date().toISOString().slice(0,10)+'.json';
+  // Export EVERYTHING - full backup that can restore 100%
+  const backup = {
+    version: '3.2',
+    exportDate: new Date().toISOString(),
+    exportedBy: 'SEIL Sistema Mantenimiento',
+    // Core data
+    orders: orders,
+    checklists: checklists,
+    // Config
+    appsScriptUrl: localStorage.getItem('seil_apps_script_url')||'',
+    lastSync: localStorage.getItem('seil_last_sync')||'',
+    // Log
+    log: JSON.parse(localStorage.getItem('seil_v3_log')||'[]'),
+    // Stats
+    requisiciones: getReqs(),
+    stats: {
+      totalOrders: orders.length,
+      totalChecklists: checklists.length,
+      totalReqs: getReqs().length,
+      equipos: [...new Set(orders.map(o=>o.equipo))].filter(Boolean)
+    }
+  };
+  const json = JSON.stringify(backup, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'SEIL_BACKUP_COMPLETO_' + new Date().toISOString().slice(0,10) + '.json';
   a.click();
+  URL.revokeObjectURL(url);
+  // Show confirmation
+  setTimeout(() => {
+    const info = `✅ Backup exportado correctamente\n\n` +
+      `📋 Órdenes: ${orders.length}\n` +
+      `✅ Checklists: ${checklists.length}\n` +
+      `📅 Fecha: ${new Date().toLocaleString('es-MX')}\n\n` +
+      `Guarda este archivo en un lugar seguro.\nPuede restaurar el sistema completo.`;
+    alert(info);
+  }, 500);
 }
 function importData(ev) {
-  const file=ev.target.files[0]; if(!file) return;
-  const r=new FileReader();
-  r.onload=e=>{
-    try{
-      const d=JSON.parse(e.target.result);
-      const _o=d.orders||d.ordenes||[];const _c=d.checklists||[];if(_o.length||_c.length){
-        orders=_o.map(mapOrderFromSheet).filter(o=>o.folio); checklists=_c.map(mapChkFromSheet).filter(c=>c.folio); sv();
-        alert(`✅ Importado: ${orders.length} órdenes, ${checklists.length} checklists`);
-        closeM('mExport'); renderJefeDash();
-      } else alert('Archivo inválido');
-    }catch{alert('Error al leer el archivo');}
+  const file = ev.target.files[0]; if(!file) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const d = JSON.parse(e.target.result);
+      
+      // Detect if this is a full backup or a Sheets-format backup
+      const isFullBackup = d.version && (d.version === '3.2' || d.version === '3.1');
+      
+      let importedOrders = [];
+      let importedChecklists = [];
+      
+      if(isFullBackup) {
+        // FULL BACKUP: restore raw data directly - no mapping needed
+        importedOrders = d.orders || [];
+        importedChecklists = d.checklists || [];
+        
+        // Restore config
+        if(d.appsScriptUrl) localStorage.setItem('seil_apps_script_url', d.appsScriptUrl);
+        if(d.log && d.log.length) localStorage.setItem('seil_v3_log', JSON.stringify(d.log));
+        if(d.lastSync) localStorage.setItem('seil_last_sync', d.lastSync);
+        if(d.requisiciones && d.requisiciones.length) localStorage.setItem('seil_v3_reqs', JSON.stringify(d.requisiciones));
+        
+      } else {
+        // SHEETS FORMAT: use mapping (backwards compatibility)
+        const rawO = d.orders||d.ordenes||[];
+        const rawC = d.checklists||[];
+        importedOrders = rawO.map(mapOrderFromSheet).filter(o=>o.folio);
+        importedChecklists = rawC.map(mapChkFromSheet).filter(c=>c.folio);
+      }
+      
+      if(!importedOrders.length && !importedChecklists.length) {
+        alert('⚠️ El archivo no contiene datos válidos.'); return;
+      }
+      
+      if(!confirm(
+        `¿Restaurar backup?\n\n` +
+        `📋 Órdenes: ${importedOrders.length}\n` +
+        `✅ Checklists: ${importedChecklists.length}\n` +
+        (isFullBackup ? `\n✅ Backup completo detectado - se restaurará todo.` : `\n⚠️ Formato parcial - algunos datos internos pueden no restaurarse.`) +
+        `\n\n⚠️ ESTO REEMPLAZARÁ LOS DATOS ACTUALES.`
+      )) return;
+      
+      orders = importedOrders;
+      checklists = importedChecklists;
+      sv();
+      renderHomeStats();
+      checkUrgent();
+      checkAlerts();
+      
+      const msg = isFullBackup
+        ? `✅ Backup completo restaurado\n\nÓrdenes: ${orders.length}\nChecklists: ${checklists.length}\nBitácoras, refacciones y fotos restauradas.`
+        : `✅ Datos importados\n\nÓrdenes: ${orders.length}\nChecklists: ${checklists.length}`;
+      alert(msg);
+      
+    } catch(err) {
+      alert('❌ Error al leer el archivo: ' + err.message + '\n\nVerifica que sea un backup válido de SEIL.');
+    }
   };
   r.readAsText(file);
 }
-
-// ════════════════════════════════════════════════
-// TABS
-// ════════════════════════════════════════════════
 function stab(cid,el) {
   const tabs=el.closest('.tabs');
   tabs.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
@@ -2676,7 +2761,7 @@ async function loadFromSheetsOnStartup() {
   if(!scriptUrl) return;
   if(orders.length > 0) return; // Already have local data
   try {
-    const r = await fetch(scriptUrl + '?action=read');
+    const r = await fetchWithRetry(scriptUrl + '?action=read', {method:'GET'}, 3, 1000);
     if(!r.ok) return;
     const d = await r.json();
     if(d.error) return;
@@ -2700,8 +2785,9 @@ async function syncFromSheets() {
   if(!scriptUrl){ alert('Configura la URL del Apps Script'); return; }
   setSyncStatus('Importando desde Sheets...','syncing');
   sheetsLog('Importando todos los datos desde Sheets...');
+  showLoader('Importando datos desde Google Sheets...');
   try {
-    const r = await fetch(scriptUrl + '?action=read');
+    const r = await fetchWithRetry(scriptUrl + '?action=read', {method:'GET'}, 3, 1000);
     const d = await r.json();
     if(d.error){ sheetsLog('Error: '+d.error,'err'); setSyncStatus('Error','err'); return; }
     let changed = false;
@@ -2719,7 +2805,8 @@ async function syncFromSheets() {
     setSyncStatus('Datos importados correctamente','ok');
     localStorage.setItem('seil_last_sync', new Date().toISOString());
     updateSyncBadge();
-  } catch(e){ sheetsLog('Error: '+e.message,'err'); setSyncStatus('Error de red','err'); }
+    hideLoader();
+  } catch(e){ sheetsLog('Error: '+e.message,'err'); setSyncStatus('Error de red','err'); hideLoader(); }
 }
 
 
@@ -2785,14 +2872,16 @@ async function uploadPhotos() {
   const progBar = document.getElementById('uploadProgBar');
   btn.disabled = true;
   prog.style.display = 'block';
-  status.textContent = 'Subiendo fotos...';
+  status.textContent = 'Comprimiendo y subiendo fotos...';
+  showLoader('Subiendo evidencias a Drive...');
   let uploaded = 0;
   let driveUrl = '';
   for(let i = 0; i < _selectedPhotos.length; i++) {
     const file = _selectedPhotos[i];
     try {
-      const b64 = await fileToBase64(file);
-      const ext = (file.name.split('.').pop()||'jpg').toLowerCase();
+      // Compress image before upload (1280px max, 70% quality)
+      const b64 = await compressImage(file);
+      const ext = 'jpg'; // Always JPEG after compression
       const mime = file.type || 'image/jpeg';
       const fileName = _photoFolio + '_' + (i+1) + '.' + ext;
       const payload = JSON.stringify({
@@ -2839,6 +2928,7 @@ async function uploadPhotos() {
   }
   status.textContent = '✅ ' + uploaded + ' foto' + (uploaded>1?'s':'') + ' subida' + (uploaded>1?'s':'') + ' correctamente';
   btn.disabled = false;
+  hideLoader();
   _autoSync();
 }
 
@@ -3203,9 +3293,300 @@ function openOrderByFolio(folio) {
   document.getElementById('wrBack').onclick = () => { goRefacciones(); };
 }
 
+
+// ════════════════════════════════════════════════
+// GLOBAL LOADER + NETWORK RETRY
+// ════════════════════════════════════════════════
+function showLoader(msg) {
+  const el = document.getElementById('globalLoader');
+  const txt = document.getElementById('globalLoaderText');
+  if(el) { el.style.display='flex'; }
+  if(txt) txt.textContent = msg || 'Procesando...';
+}
+function hideLoader() {
+  const el = document.getElementById('globalLoader');
+  if(el) el.style.display = 'none';
+}
+
+async function fetchWithRetry(url, options={}, retries=3, delay=1000) {
+  try {
+    const r = await fetch(url, options);
+    return r;
+  } catch(err) {
+    if(retries <= 1) throw err;
+    console.warn(`Red falló, reintentando en ${delay}ms... (${retries-1} intentos restantes)`);
+    await new Promise(res => setTimeout(res, delay));
+    return fetchWithRetry(url, options, retries-1, delay*2);
+  }
+}
+
+// Compress image before upload (canvas resize to max 1280px, 70% quality)
+function compressImage(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 1280;
+        let w = img.width, h = img.height;
+        if(w > MAX || h > MAX) {
+          if(w > h) { h = Math.round(h * MAX/w); w = MAX; }
+          else { w = Math.round(w * MAX/h); h = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        // Get compressed base64 (JPEG 70%)
+        const compressed = canvas.toDataURL('image/jpeg', 0.70).split(',')[1];
+        resolve(compressed);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+
+function checkAlerts() {
+  const alerts = [];
+  const now = Date.now();
+  const DAY = 86400000;
+
+  // Órdenes críticas activas
+  const criticas = orders.filter(o =>
+    o.prioridad === 'Critico' &&
+    !['Cerrado','Cerrado - Checklist'].includes(o.status)
+  );
+  if(criticas.length > 0)
+    alerts.push({
+      type: 'danger',
+      icon: '🔴',
+      msg: `${criticas.length} orden${criticas.length>1?'es':''} CRÍTICA${criticas.length>1?'S':''} activa${criticas.length>1?'s':''}: ${criticas.map(o=>o.equipo).join(', ')}`
+    });
+
+  // Órdenes abiertas más de 10 días
+  const viejas = orders.filter(o => {
+    if(['Cerrado','Cerrado - Checklist'].includes(o.status)) return false;
+    if(!o.createdAt) return false;
+    return (now - new Date(o.createdAt).getTime()) > 10 * DAY;
+  });
+  if(viejas.length > 0)
+    alerts.push({
+      type: 'warning',
+      icon: '⏰',
+      msg: `${viejas.length} orden${viejas.length>1?'es':''} llevan más de 10 días sin cerrarse: ${viejas.map(o=>o.folio).join(', ')}`
+    });
+
+  // Mecánicos con más de 3 órdenes sin ejecutar
+  const TECNICOS = ['Iram Cisneros','Erick Gutierrez','Andres Mora','Jose Covarrubias'];
+  TECNICOS.forEach(tec => {
+    const pendientes = orders.filter(o =>
+      o.tecnico === tec &&
+      ['Pendiente','Pospuesto'].includes(o.status)
+    );
+    if(pendientes.length > 3)
+      alerts.push({
+        type: 'warning',
+        icon: '📋',
+        msg: `${tec.split(' ')[0]} tiene ${pendientes.length} órdenes pendientes sin iniciar`
+      });
+  });
+
+  // Render
+  const container = document.getElementById('alertsContainer');
+  if(!container) return;
+  if(!alerts.length) {
+    container.innerHTML = '';
+    container.style.display = 'none';
+    return;
+  }
+  container.style.display = 'block';
+  container.innerHTML = alerts.map(a => `
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;margin-bottom:6px;border-radius:var(--radius-sm);background:${a.type==='danger'?'#fee2e2':'#fef9c3'};border:1px solid ${a.type==='danger'?'#fca5a5':'#fde68a'}">
+      <span style="font-size:16px;flex-shrink:0">${a.icon}</span>
+      <span style="font-size:12px;color:${a.type==='danger'?'#991b1b':'#92400e'};line-height:1.4">${a.msg}</span>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════════════
+// REQUISICIONES - SEGUIMIENTO DE COMPRAS
+// ════════════════════════════════════════════════
+let _currentReqId = null;
+
+function goRequisiciones() {
+  renderReqScreen();
+  ss('reqScreen', 'Requisiciones');
+}
+
+function saveReq() {
+  const num = document.getElementById('rqNum').value.trim();
+  const desc = document.getElementById('rqDesc').value.trim();
+  if(!num || !desc) { alert('El número y descripción son obligatorios.'); return; }
+  const req = {
+    id: 'REQ-' + Date.now(),
+    numero: num,
+    descripcion: desc,
+    ordenVinculada: document.getElementById('rqOrden').value || '',
+    fechaEnvio: document.getElementById('rqFechaEnvio').value || new Date().toISOString().slice(0,10),
+    fechaCotizacion: '',
+    fechaLlegada: '',
+    notas: document.getElementById('rqNotas').value.trim(),
+    estado: 'Enviada',
+    creadoEn: new Date().toISOString()
+  };
+  const reqs = getReqs();
+  reqs.push(req);
+  saveReqs(reqs);
+  closeM('mNewReq');
+  renderReqScreen();
+  ['rqNum','rqDesc','rqNotas'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+}
+
+function openUpdReq(id) {
+  _currentReqId = id;
+  const req = getReqs().find(r => r.id === id);
+  if(!req) return;
+  document.getElementById('updReqTitle').textContent = req.numero + ' — ' + req.descripcion;
+  document.getElementById('updFechaCot').value = req.fechaCotizacion || '';
+  document.getElementById('updFechaLleg').value = req.fechaLlegada || '';
+  document.getElementById('updNotas').value = req.notas || '';
+  openM('mUpdReq');
+}
+
+function saveUpdReq() {
+  const reqs = getReqs();
+  const idx = reqs.findIndex(r => r.id === _currentReqId);
+  if(idx < 0) return;
+  const cot = document.getElementById('updFechaCot').value;
+  const lleg = document.getElementById('updFechaLleg').value;
+  reqs[idx].fechaCotizacion = cot;
+  reqs[idx].fechaLlegada = lleg;
+  reqs[idx].notas = document.getElementById('updNotas').value.trim();
+  reqs[idx].estado = lleg ? 'Recibida' : cot ? 'Cotizada' : 'Enviada';
+  saveReqs(reqs);
+  closeM('mUpdReq');
+  renderReqScreen();
+}
+
+function deleteReq(id) {
+  if(!confirm('¿Eliminar esta requisición?')) return;
+  saveReqs(getReqs().filter(r => r.id !== id));
+  renderReqScreen();
+}
+
+function getReqs() {
+  const raw = localStorage.getItem('seil_v3_reqs');
+  return raw ? JSON.parse(raw) : [];
+}
+
+function saveReqs(reqs) {
+  localStorage.setItem('seil_v3_reqs', JSON.stringify(reqs));
+}
+
+function diffDays(d1, d2) {
+  if(!d1 || !d2) return null;
+  const ms = new Date(d2) - new Date(d1);
+  return Math.round(ms / 86400000);
+}
+
+function daysBadge(days) {
+  if(days === null) return '<span style="color:var(--text3)">—</span>';
+  const color = days <= 3 ? 'var(--green)' : days <= 7 ? 'var(--acc)' : 'var(--red)';
+  return `<span style="font-weight:700;color:${color}">${days}d</span>`;
+}
+
+function renderReqScreen() {
+  const all = getReqs();
+  const q = (document.getElementById('reqSearch')?.value||'').toLowerCase();
+  const filtro = document.getElementById('reqFiltro')?.value||'';
+
+  let filtered = all.filter(r => {
+    const matchQ = !q || r.numero.toLowerCase().includes(q) || r.descripcion.toLowerCase().includes(q);
+    const matchF = !filtro ? true :
+      filtro === 'pendiente' ? r.estado !== 'Recibida' :
+      r.estado === filtro;
+    return matchQ && matchF;
+  }).sort((a,b) => new Date(b.creadoEn) - new Date(a.creadoEn));
+
+  // Metrics
+  const pendientes = all.filter(r => r.estado !== 'Recibida');
+  const recibidas = all.filter(r => r.estado === 'Recibida');
+  const tiemposCot = all.filter(r => r.fechaCotizacion)
+    .map(r => diffDays(r.fechaEnvio, r.fechaCotizacion)).filter(d => d !== null);
+  const tiemposEnt = all.filter(r => r.fechaLlegada)
+    .map(r => diffDays(r.fechaEnvio, r.fechaLlegada)).filter(d => d !== null);
+  const avgCot = tiemposCot.length ? (tiemposCot.reduce((s,d)=>s+d,0)/tiemposCot.length).toFixed(1) : '—';
+  const avgEnt = tiemposEnt.length ? (tiemposEnt.reduce((s,d)=>s+d,0)/tiemposEnt.length).toFixed(1) : '—';
+
+  const metrics = document.getElementById('reqMetrics');
+  if(metrics) metrics.innerHTML = [
+    {label:'Pendientes', val:pendientes.length, color:'var(--acc)'},
+    {label:'Recibidas', val:recibidas.length, color:'var(--green)'},
+    {label:'Días prom. cotización', val:avgCot+(avgCot!=='—'?' días':''), color:'var(--blue)'},
+    {label:'Días prom. entrega', val:avgEnt+(avgEnt!=='—'?' días':''), color:'var(--navy)'},
+  ].map(m => `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px">
+    <div style="font-size:11px;color:var(--text2)">${m.label}</div>
+    <div style="font-size:20px;font-weight:700;color:${m.color}">${m.val}</div>
+  </div>`).join('');
+
+  const tbody = document.getElementById('reqBody');
+  const count = document.getElementById('reqCount');
+  if(count) count.textContent = filtered.length + ' requisición' + (filtered.length!==1?'es':'');
+
+  if(!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--text3)">' +
+      (all.length ? '🔍 Sin resultados' : '📭 No hay requisiciones registradas aún.') + '</td></tr>';
+    return;
+  }
+
+  const estadoColors = {
+    'Enviada': {bg:'#fef9c3',color:'#92400e',label:'Enviada a Compras'},
+    'Cotizada': {bg:'#dbeafe',color:'#1e40af',label:'Cotizada'},
+    'Recibida': {bg:'#dcfce7',color:'#166534',label:'Recibida ✓'}
+  };
+
+  tbody.innerHTML = filtered.map(r => {
+    const ec = estadoColors[r.estado] || estadoColors['Enviada'];
+    const dCot = diffDays(r.fechaEnvio, r.fechaCotizacion);
+    const dEnt = diffDays(r.fechaEnvio, r.fechaLlegada);
+    const dTotal = diffDays(r.fechaEnvio, r.fechaLlegada);
+    const dPend = !r.fechaLlegada ? diffDays(r.fechaEnvio, new Date().toISOString().slice(0,10)) : null;
+    return `<tr>
+      <td><span style="font-family:monospace;font-weight:700;font-size:12px">${r.numero}</span></td>
+      <td style="max-width:200px">${r.descripcion}${r.notas?`<div style="font-size:10px;color:var(--text3);margin-top:2px">${r.notas}</div>`:''}</td>
+      <td style="font-size:11px;color:var(--blue)">${r.ordenVinculada||'—'}</td>
+      <td style="font-size:11px">${r.fechaEnvio||'—'}</td>
+      <td style="font-size:11px">${r.fechaCotizacion||'<span style="color:var(--text3)">Pendiente</span>'}</td>
+      <td style="font-size:11px">${r.fechaLlegada||'<span style="color:var(--text3)">Pendiente</span>'}</td>
+      <td style="text-align:center">${daysBadge(dCot)}</td>
+      <td style="text-align:center">${r.fechaLlegada?daysBadge(diffDays(r.fechaCotizacion,r.fechaLlegada)):daysBadge(null)}</td>
+      <td style="text-align:center">${r.fechaLlegada?daysBadge(dTotal):dPend!==null?`<span style="color:var(--acc);font-weight:700">${dPend}d ⏳</span>`:'—'}</td>
+      <td><span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:${ec.bg};color:${ec.color}">${ec.label}</span></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-s" style="font-size:11px;padding:3px 8px" onclick="openUpdReq('${r.id}')">✏️</button>
+        <button class="btn btn-s" style="font-size:11px;padding:3px 8px;color:var(--red)" onclick="deleteReq('${r.id}')">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openNewReqModal() {
+  // Populate orders dropdown
+  const sel = document.getElementById('rqOrden');
+  if(sel) {
+    const active = orders.filter(o => !['Cerrado','Cerrado - Checklist'].includes(o.status));
+    sel.innerHTML = '<option value="">— Sin vincular —</option>' +
+      active.map(o => `<option value="${o.folio}">${o.folio} — ${o.equipo}</option>`).join('');
+  }
+  document.getElementById('rqFechaEnvio').value = new Date().toISOString().slice(0,10);
+  openM('mNewReq');
+}
+
 // INIT
 renderHomeStats();
 checkUrgent();
+checkAlerts();
 initOffline();
 registerSW();
 updateSyncBadge();
@@ -3219,6 +3600,25 @@ function _autoSync() {
   setTimeout(async ()=>{
     try { await syncToSheets('all'); } catch(e){}
   }, 1500);
+}
+
+function notifyEmail(tipo, orden) {
+  // Send email notification via Apps Script
+  const scriptUrl = loadScriptUrl();
+  if(!scriptUrl || !orden) return;
+  const payload = JSON.stringify({
+    action: 'sendEmail',
+    tipo: tipo,
+    folio: orden.folio,
+    equipo: orden.equipo,
+    tecnico: orden.tecnico,
+    prioridad: orden.prioridad,
+    descripcion: orden.reporte||'',
+    fecha: new Date().toLocaleString('es-MX')
+  });
+  fetch(scriptUrl + '?data=' + encodeURIComponent(payload), {
+    method: 'GET', mode: 'no-cors'
+  }).catch(()=>{});
 }
 
 
@@ -3541,6 +3941,109 @@ function registerSW(){
       </table>
     </div>
     <div style="font-size:11px;color:var(--text3);margin-top:8px" id="rfCount"></div>
+  </div>
+</div>
+
+
+<!-- GLOBAL LOADER -->
+<div id="globalLoader" style="position:fixed;inset:0;background:rgba(13,43,94,0.82);display:none;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(3px);flex-direction:column;gap:14px">
+  <div style="width:46px;height:46px;border:5px solid rgba(255,255,255,0.2);border-top-color:#ef4444;border-radius:50%;animation:spinGL 0.9s linear infinite"></div>
+  <div id="globalLoaderText" style="color:#fff;font-size:14px;font-weight:700;letter-spacing:0.5px;text-align:center;padding:0 20px">Procesando...</div>
+</div>
+<style>@keyframes spinGL{100%{transform:rotate(360deg)}}</style>
+
+
+<!-- ═══════════════════════════════ REQUISICIONES SCREEN ════ -->
+<div class="screen" id="reqScreen">
+  <div class="phdr">
+    <button class="btn btn-s" onclick="goHome()">← Inicio</button>
+    <div>
+      <div class="ptitle">📦 Seguimiento de Requisiciones</div>
+      <div class="psub">Control de tiempos con Compras</div>
+    </div>
+    <button class="btn btn-p" onclick="openNewReqModal()">+ Nueva requisición</button>
+  </div>
+  <div class="ca">
+    <!-- MÉTRICAS -->
+    <div class="g4" id="reqMetrics" style="margin-bottom:16px"></div>
+    <!-- FILTRO -->
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+      <select id="reqFiltro" onchange="renderReqScreen()" style="min-width:160px">
+        <option value="">Todas</option>
+        <option value="Enviada">Enviadas a Compras</option>
+        <option value="Cotizada">Cotizadas</option>
+        <option value="Recibida">Recibidas</option>
+        <option value="pendiente">Pendientes (sin recibir)</option>
+      </select>
+      <input type="text" id="reqSearch" placeholder="🔍 Buscar por número o descripción..."
+        oninput="renderReqScreen()" style="flex:1;min-width:200px">
+    </div>
+    <!-- TABLA -->
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius)">
+      <table class="tbl" style="width:100%;min-width:800px">
+        <thead><tr>
+          <th>No. Req.</th>
+          <th>Descripción</th>
+          <th>Orden vinculada</th>
+          <th>Fecha envío</th>
+          <th>Fecha cotiz.</th>
+          <th>Fecha llegada</th>
+          <th style="text-align:center">T. Cotizar</th>
+          <th style="text-align:center">T. Entrega</th>
+          <th style="text-align:center">T. Total</th>
+          <th>Estado</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="reqBody"></tbody>
+      </table>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px" id="reqCount"></div>
+  </div>
+</div>
+
+<!-- NUEVA REQUISICIÓN MODAL -->
+<div class="moverlay" id="mNewReq">
+  <div class="mbox" style="width:480px;max-width:95vw">
+    <div class="mt">📦 Nueva requisición</div>
+    <div class="fg"><label>Número de requisición *</label>
+      <input type="text" id="rqNum" placeholder="Ej: REQ-2026-045"></div>
+    <div class="fg"><label>Descripción *</label>
+      <input type="text" id="rqDesc" placeholder="Ej: Sello hidráulico bomba pluma GG-30-2"></div>
+    <div class="fg"><label>Orden de mantenimiento vinculada (opcional)</label>
+      <select id="rqOrden">
+        <option value="">— Sin vincular —</option>
+      </select>
+    </div>
+    <div class="fg"><label>Fecha de envío a Compras</label>
+      <input type="date" id="rqFechaEnvio"></div>
+    <div class="fg"><label>Notas adicionales</label>
+      <input type="text" id="rqNotas" placeholder="Ej: Urgente, equipo crítico parado"></div>
+    <div class="mfooter">
+      <button class="btn btn-s" onclick="closeM('mNewReq')">Cancelar</button>
+      <button class="btn btn-p" onclick="saveReq()">Guardar requisición</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACTUALIZAR REQUISICIÓN MODAL -->
+<div class="moverlay" id="mUpdReq">
+  <div class="mbox" style="width:460px;max-width:95vw">
+    <div class="mt">📦 Actualizar requisición</div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:12px" id="updReqTitle"></div>
+    <div class="fg"><label>Fecha de cotización recibida</label>
+      <input type="date" id="updFechaCot">
+      <div style="font-size:11px;color:var(--text3);margin-top:3px">Deja vacío si aún no se ha cotizado</div>
+    </div>
+    <div class="fg"><label>Fecha de llegada al taller</label>
+      <input type="date" id="updFechaLleg">
+      <div style="font-size:11px;color:var(--text3);margin-top:3px">Deja vacío si aún no ha llegado</div>
+    </div>
+    <div class="fg"><label>Notas de seguimiento</label>
+      <input type="text" id="updNotas" placeholder="Ej: Cotización recibida, esperando autorización de gerencia"></div>
+    <div class="mfooter">
+      <button class="btn btn-s" onclick="closeM('mUpdReq')">Cancelar</button>
+      <button class="btn btn-p" onclick="saveUpdReq()">Actualizar</button>
+    </div>
   </div>
 </div>
 
