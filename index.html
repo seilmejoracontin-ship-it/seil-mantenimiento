@@ -3805,29 +3805,31 @@ async function loadFromSupabase() {
       headers: { 'Prefer': '' }
     });
     if(ordData && ordData.length) {
-      orders = ordData.map(r => ({
+      orders = ordData
+        .filter(r => r.folio && r.id) // Skip incomplete test records
+        .map(r => ({
         id: r.id,
-        folio: r.folio,
-        equipo: r.equipo,
-        tipo: r.tipo,
-        status: r.status,
-        tecnico: r.tecnico,
-        prioridad: r.prioridad,
-        detectado: r.detectado,
-        horometro: r.horometro,
-        km: r.km,
-        reporte: r.reporte,
-        notas: r.notas,
-        comentarios: r.comentarios,
-        costo: r.costo,
-        createdAt: r.created_at,
-        startedAt: r.started_at,
-        closedAt: r.closed_at,
+        folio: r.folio||'',
+        equipo: r.equipo||'',
+        tipo: r.tipo||'Correctivo',
+        status: r.status||'Pendiente',
+        tecnico: r.tecnico||'',
+        prioridad: r.prioridad||'Normal',
+        detectado: r.detectado||'',
+        horometro: r.horometro||'',
+        km: r.km||'',
+        reporte: r.reporte||'',
+        notas: r.notas||'',
+        comentarios: r.comentarios||'',
+        costo: parseFloat(r.costo||0),
+        createdAt: r.created_at||new Date().toISOString(),
+        startedAt: r.started_at||null,
+        closedAt: r.closed_at||null,
         totalPauseMs: r.total_pause_ms||0,
         pauseReason: r.pause_reason||'',
         linkedChk: r.linked_chk||'',
-        bitacora: r.bitacora||[],
-        refacciones: r.refacciones||[],
+        bitacora: Array.isArray(r.bitacora)?r.bitacora:[],
+        refacciones: Array.isArray(r.refacciones)?r.refacciones:[],
         driveUrl: r.drive_url||''
       }));
     }
