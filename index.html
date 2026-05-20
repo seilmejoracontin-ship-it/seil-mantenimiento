@@ -2800,7 +2800,7 @@ async function syncFromSheets() {
   if(!scriptUrl){ alert('Configura la URL del Apps Script'); return; }
   setSyncStatus('Importando desde Sheets...','syncing');
   sheetsLog('Importando todos los datos desde Sheets...');
-  showLoader('Importando datos desde la nube...');
+  // showLoader removed to avoid blocking UI
   // Try Supabase first
   try {
     const ok = await loadFromSupabase();
@@ -3926,6 +3926,7 @@ function startRealtimeSync() {
 }
 
 // INIT
+hideLoader(); // Ensure loader is hidden on start
 renderHomeStats();
 checkUrgent();
 checkAlerts();
