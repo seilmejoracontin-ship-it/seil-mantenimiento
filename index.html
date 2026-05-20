@@ -2774,26 +2774,24 @@ function mapChkFromSheet(row) {
 }
 
 async function loadFromSheetsOnStartup() {
+  // Try Supabase first (fast, reliable, full data)
+  try {
+    const ok = await loadFromSupabase();
+    if(ok) return;
+  } catch(e) { console.log('Supabase load failed, trying Sheets:', e.message); }
+  // Fallback to Sheets
   const scriptUrl = loadScriptUrl();
-  if(!scriptUrl) return;
-  if(orders.length > 0) return; // Already have local data
+  if(!scriptUrl || orders.length > 0) return;
   try {
     const r = await fetchWithRetry(scriptUrl + '?action=read', {method:'GET'}, 3, 1000);
     if(!r.ok) return;
     const d = await r.json();
     if(d.error) return;
-    let changed = false;
-    const rawOrders = d.orders||d.ordenes||[];
-    if(rawOrders.length) {
-      orders = rawOrders.map(mapOrderFromSheet).filter(o=>o.folio);
-      changed = true;
-    }
-    const rawChks = d.checklists||d.checklists||[];
-    if(rawChks.length) {
-      checklists = rawChks.map(mapChkFromSheet).filter(c=>c.folio);
-      changed = true;
-    }
-    if(changed) { sv(); renderHomeStats(); checkUrgent(); }
+    const rawO = d.orders||d.ordenes||[];
+    const rawC = d.checklists||[];
+    if(rawO.length) { orders = rawO.map(mapOrderFromSheet).filter(o=>o.folio); }
+    if(rawC.length) { checklists = rawC.map(mapChkFromSheet).filter(c=>c.folio); }
+    if(rawO.length||rawC.length) { sv(); renderHomeStats(); checkUrgent(); checkAlerts(); }
   } catch(e) { console.log('Sheets load:', e.message); }
 }
 
@@ -2802,7 +2800,17 @@ async function syncFromSheets() {
   if(!scriptUrl){ alert('Configura la URL del Apps Script'); return; }
   setSyncStatus('Importando desde Sheets...','syncing');
   sheetsLog('Importando todos los datos desde Sheets...');
-  showLoader('Importando datos desde Google Sheets...');
+  showLoader('Importando datos desde la nube...');
+  // Try Supabase first
+  try {
+    const ok = await loadFromSupabase();
+    if(ok) {
+      setSyncStatus('Datos importados correctamente','ok');
+      hideLoader();
+      return;
+    }
+  } catch(e) { console.log('Supabase load failed:', e.message); }
+  // Fallback to Sheets
   try {
     const r = await fetchWithRetry(scriptUrl + '?action=read', {method:'GET'}, 3, 1000);
     const d = await r.json();
@@ -3660,6 +3668,213 @@ function editRef(i) {
   document.getElementById('rNom').focus();
 }
 
+
+// ════════════════════════════════════════════════
+// SUPABASE CONFIG
+// ════════════════════════════════════════════════
+const SUPA_URL = 'https://azbrleicbxnypcnfjvoe.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6YnJsZWljYnhueXBjbmZqdm9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMDA0MTQsImV4cCI6MjA5NDg3NjQxNH0.lbF732huyMcU5uXLO5PJBIRFjK2qGIbSDSXu1dAoq9I';
+
+async function supaFetch(path, options = {}) {
+  const res = await fetch(SUPA_URL + path, {
+    ...options,
+    headers: {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': options.prefer || 'return=minimal',
+      ...(options.headers || {})
+    }
+  });
+  if(!res.ok) {
+    const err = await res.text();
+    throw new Error('Supabase error ' + res.status + ': ' + err);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+// ── SUPABASE SYNC FUNCTIONS ───────────────────────────────────
+async function syncToSupabase() {
+  try {
+    // Upsert all orders
+    if(orders.length) {
+      const rows = orders.map(o => ({
+        id: o.id,
+        folio: o.folio,
+        equipo: o.equipo||'',
+        tipo: o.tipo||'Correctivo',
+        status: o.status||'Pendiente',
+        tecnico: o.tecnico||'',
+        prioridad: o.prioridad||'Normal',
+        detectado: o.detectado||'',
+        horometro: String(o.horometro||''),
+        km: String(o.km||''),
+        reporte: o.reporte||'',
+        notas: o.notas||'',
+        comentarios: o.comentarios||'',
+        costo: parseFloat(o.costo||0),
+        created_at: o.createdAt||new Date().toISOString(),
+        started_at: o.startedAt||null,
+        closed_at: o.closedAt||null,
+        total_pause_ms: o.totalPauseMs||0,
+        pause_reason: o.pauseReason||'',
+        linked_chk: o.linkedChk||'',
+        bitacora: o.bitacora||[],
+        refacciones: o.refacciones||[],
+        drive_url: o.driveUrl||''
+      }));
+      await supaFetch('/rest/v1/ordenes', {
+        method: 'POST',
+        prefer: 'resolution=merge-duplicates,return=minimal',
+        headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify(rows)
+      });
+    }
+    // Upsert all checklists
+    if(checklists.length) {
+      const rows = checklists.map(c => ({
+        id: c.id,
+        folio: c.folio,
+        equipo_id: c.equipId||'',
+        type: c.type||'',
+        tecnico: c.tecnico||'',
+        fecha: c.date||new Date().toISOString(),
+        horometro: String(c.horo||''),
+        km: String(c.km||''),
+        ok_total: parseInt(c.okTotal||0),
+        fail_total: parseInt(c.failTotal||0),
+        linked_folio: c.linkedFolio||'',
+        drive_url: c.driveUrl||'',
+        items: c.items||{},
+        obs: c.obs||{}
+      }));
+      await supaFetch('/rest/v1/checklists', {
+        method: 'POST',
+        prefer: 'resolution=merge-duplicates,return=minimal',
+        headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify(rows)
+      });
+    }
+    // Upsert requisiciones
+    const reqs = getReqs();
+    if(reqs.length) {
+      const rows = reqs.map(r => ({
+        id: r.id,
+        numero: r.numero,
+        descripcion: r.descripcion||'',
+        orden_vinculada: r.ordenVinculada||'',
+        fecha_envio: r.fechaEnvio||null,
+        fecha_cotizacion: r.fechaCotizacion||null,
+        fecha_llegada: r.fechaLlegada||null,
+        notas: r.notas||'',
+        estado: r.estado||'Enviada',
+        created_at: r.creadoEn||new Date().toISOString()
+      }));
+      await supaFetch('/rest/v1/requisiciones', {
+        method: 'POST',
+        prefer: 'resolution=merge-duplicates,return=minimal',
+        headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify(rows)
+      });
+    }
+    localStorage.setItem('seil_last_sync', new Date().toISOString());
+    updateSyncBadge();
+    return true;
+  } catch(e) {
+    console.error('Supabase sync error:', e.message);
+    return false;
+  }
+}
+
+async function loadFromSupabase() {
+  try {
+    // Load orders
+    const ordData = await supaFetch('/rest/v1/ordenes?select=*&order=created_at.desc', {
+      method: 'GET',
+      headers: { 'Prefer': '' }
+    });
+    if(ordData && ordData.length) {
+      orders = ordData.map(r => ({
+        id: r.id,
+        folio: r.folio,
+        equipo: r.equipo,
+        tipo: r.tipo,
+        status: r.status,
+        tecnico: r.tecnico,
+        prioridad: r.prioridad,
+        detectado: r.detectado,
+        horometro: r.horometro,
+        km: r.km,
+        reporte: r.reporte,
+        notas: r.notas,
+        comentarios: r.comentarios,
+        costo: r.costo,
+        createdAt: r.created_at,
+        startedAt: r.started_at,
+        closedAt: r.closed_at,
+        totalPauseMs: r.total_pause_ms||0,
+        pauseReason: r.pause_reason||'',
+        linkedChk: r.linked_chk||'',
+        bitacora: r.bitacora||[],
+        refacciones: r.refacciones||[],
+        driveUrl: r.drive_url||''
+      }));
+    }
+    // Load checklists
+    const chkData = await supaFetch('/rest/v1/checklists?select=*&order=fecha.desc', {
+      method: 'GET',
+      headers: { 'Prefer': '' }
+    });
+    if(chkData && chkData.length) {
+      checklists = chkData.map(r => ({
+        id: r.id,
+        folio: r.folio,
+        equipId: r.equipo_id,
+        type: r.type,
+        tecnico: r.tecnico,
+        date: r.fecha,
+        horo: r.horometro,
+        km: r.km,
+        okTotal: r.ok_total,
+        failTotal: r.fail_total,
+        linkedFolio: r.linked_folio||'',
+        driveUrl: r.drive_url||'',
+        items: r.items||{},
+        obs: r.obs||{}
+      }));
+    }
+    // Load requisiciones
+    const reqData = await supaFetch('/rest/v1/requisiciones?select=*&order=created_at.desc', {
+      method: 'GET',
+      headers: { 'Prefer': '' }
+    });
+    if(reqData && reqData.length) {
+      const reqs = reqData.map(r => ({
+        id: r.id,
+        numero: r.numero,
+        descripcion: r.descripcion,
+        ordenVinculada: r.orden_vinculada||'',
+        fechaEnvio: r.fecha_envio||'',
+        fechaCotizacion: r.fecha_cotizacion||'',
+        fechaLlegada: r.fecha_llegada||'',
+        notas: r.notas||'',
+        estado: r.estado||'Enviada',
+        creadoEn: r.created_at
+      }));
+      saveReqs(reqs);
+    }
+    sv();
+    renderHomeStats();
+    checkUrgent();
+    checkAlerts();
+    return true;
+  } catch(e) {
+    console.error('Supabase load error:', e.message);
+    return false;
+  }
+}
+
 // INIT
 renderHomeStats();
 checkUrgent();
@@ -3671,12 +3886,12 @@ setTimeout(loadFromSheetsOnStartup, 800); // Delay to let UI render first
 
 
 function _autoSync() {
-  // Background sync - silent, no UI
-  const scriptUrl = loadScriptUrl();
-  if(!scriptUrl) return;
+  // Sync to both Supabase (primary) and Sheets (backup)
   setTimeout(async ()=>{
+    try { await syncToSupabase(); } catch(e){ console.log('Supabase sync:', e.message); }
+    // Keep Sheets as backup
     try { await syncToSheets('all'); } catch(e){}
-  }, 1500);
+  }, 800);
 }
 
 function notifyEmail(tipo, orden) {
@@ -3927,7 +4142,7 @@ function registerSW(){
     </div>
     <div id="sheetsUrlBlock">
       <div class="alert a-info" style="margin-bottom:10px;font-size:11px">
-        La sincronización usa Google Apps Script. Pega la URL del script desplegado:
+        Sincronización con Supabase (primaria) y Google Sheets (respaldo):
       </div>
       <div class="fg" style="margin-bottom:10px">
         <label>URL del Apps Script</label>
