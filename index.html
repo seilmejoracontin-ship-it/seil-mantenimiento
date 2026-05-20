@@ -3730,10 +3730,9 @@ async function syncToSupabase() {
         refacciones: o.refacciones||[],
         drive_url: o.driveUrl||''
       }));
-      await supaFetch('/rest/v1/ordenes', {
+      await supaFetch('/rest/v1/ordenes?on_conflict=id', {
         method: 'POST',
-        prefer: 'resolution=merge-duplicates,return=minimal',
-        headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+        headers: { 'Prefer': 'resolution=merge-duplicates' },
         body: JSON.stringify(rows)
       });
     }
@@ -3755,10 +3754,9 @@ async function syncToSupabase() {
         items: c.items||{},
         obs: c.obs||{}
       }));
-      await supaFetch('/rest/v1/checklists', {
+      await supaFetch('/rest/v1/checklists?on_conflict=id', {
         method: 'POST',
-        prefer: 'resolution=merge-duplicates,return=minimal',
-        headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+        headers: { 'Prefer': 'resolution=merge-duplicates' },
         body: JSON.stringify(rows)
       });
     }
@@ -3777,10 +3775,9 @@ async function syncToSupabase() {
         estado: r.estado||'Enviada',
         created_at: r.creadoEn||new Date().toISOString()
       }));
-      await supaFetch('/rest/v1/requisiciones', {
+      await supaFetch('/rest/v1/requisiciones?on_conflict=id', {
         method: 'POST',
-        prefer: 'resolution=merge-duplicates,return=minimal',
-        headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+        headers: { 'Prefer': 'resolution=merge-duplicates' },
         body: JSON.stringify(rows)
       });
     }
