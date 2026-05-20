@@ -2901,16 +2901,17 @@ async function uploadPhotos() {
         const d = await r.json();
         if(d.folderUrl) driveUrl = d.folderUrl;
       } catch(fetchErr) {
-        // Fallback: form POST
-        await new Promise(resolve => {
-          const form = document.createElement('form');
-          form.method = 'POST'; form.action = scriptUrl; form.target = '_blank';
-          const inp = document.createElement('input');
-          inp.type = 'hidden'; inp.name = 'payload'; inp.value = payload;
-          form.appendChild(inp); document.body.appendChild(form);
-          form.submit();
-          setTimeout(() => { try{document.body.removeChild(form);}catch(e){} resolve(); }, 3000);
-        });
+        // Silent retry with no-cors - no new tab opened
+        try {
+          await fetch(scriptUrl + '?action=uploadPhoto&folio=' + encodeURIComponent(_photoFolio) +
+            '&folderId=' + DRIVE_FOLDER_ID, {
+            method: 'GET',
+            mode: 'no-cors'
+          });
+          await new Promise(r => setTimeout(r, 2000));
+        } catch(e2) {
+          console.log('Upload fallback failed:', e2.message);
+        }
       }
       uploaded++;
       progBar.style.width = (uploaded/_selectedPhotos.length*100) + '%';
