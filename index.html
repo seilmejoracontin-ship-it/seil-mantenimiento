@@ -3875,6 +3875,46 @@ async function loadFromSupabase() {
   }
 }
 
+
+// ════════════════════════════════════════════════
+// SUPABASE REALTIME - Auto-refresh when data changes
+// ════════════════════════════════════════════════
+let _realtimeChannel = null;
+
+function startRealtimeSync() {
+  // Poll every 10 seconds as lightweight alternative to WebSocket
+  // Full realtime requires Supabase JS SDK
+  setInterval(async () => {
+    try {
+      // Silent background refresh
+      const ordData = await supaFetch('/rest/v1/ordenes?select=id,folio,status,equipo,tecnico&order=created_at.desc&limit=100', {
+        method: 'GET', headers: {'Prefer': ''}
+      });
+      if(!ordData) return;
+      // Check if anything changed
+      const remoteIds = new Set(ordData.map(r => r.id));
+      const localIds = new Set(orders.map(o => o.id));
+      const hasNew = ordData.some(r => !localIds.has(r.id));
+      const hasStatusChange = ordData.some(r => {
+        const local = orders.find(o => o.id === r.id);
+        return local && local.status !== r.status;
+      });
+      if(hasNew || hasStatusChange) {
+        // Full reload from Supabase
+        await loadFromSupabase();
+        renderHomeStats();
+        checkUrgent();
+        checkAlerts();
+        // If jefe dash is open, refresh it
+        const jefeScreen = document.getElementById('jefeDash');
+        if(jefeScreen && jefeScreen.classList.contains('active')) {
+          renderJefeDash();
+        }
+      }
+    } catch(e) {}
+  }, 10000); // Check every 10 seconds
+}
+
 // INIT
 renderHomeStats();
 checkUrgent();
@@ -3882,7 +3922,8 @@ checkAlerts();
 initOffline();
 registerSW();
 updateSyncBadge();
-setTimeout(loadFromSheetsOnStartup, 800); // Delay to let UI render first
+setTimeout(loadFromSheetsOnStartup, 800);
+setTimeout(startRealtimeSync, 3000); // Delay to let UI render first
 
 
 function _autoSync() {
