@@ -647,6 +647,15 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <!-- RIGHT -->
       <div>
         <div class="card" style="margin-bottom:12px">
+          <div class="card-t">🕐 Horómetro / Kilometraje</div>
+          <div class="fr" style="margin-bottom:6px">
+            <div><label>Horómetro (hrs)</label><input type="number" id="wrHoro" placeholder="ej. 14350" inputmode="numeric" pattern="[0-9]*"></div>
+            <div><label>Kilometraje (km)</label><input type="number" id="wrKm" placeholder="si aplica" inputmode="numeric" pattern="[0-9]*"></div>
+          </div>
+          <div id="horoHistory" style="font-size:11px;color:var(--text3);margin-bottom:6px"></div>
+          <button class="btn btn-s btn-sm" onclick="saveHoro()">Actualizar</button>
+        </div>
+        <div class="card" style="margin-bottom:12px">
           <div class="card-t">🚦 Control de estado</div>
           <div class="status-bar" id="statusBar"></div>
           <div id="wrActions"></div>
@@ -666,15 +675,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
             <tr><td style="color:var(--text3);padding:5px 0;font-weight:600">T. Muerto</td><td id="iTm" style="text-align:right;color:var(--yellow);font-weight:700"></td></tr>
           </table>
         </div>
-        <div class="card" style="margin-bottom:12px">
-          <div class="card-t">🕐 Horómetro / Kilometraje</div>
-          <div class="fr" style="margin-bottom:6px">
-            <div><label>Horómetro (hrs)</label><input type="number" id="wrHoro" placeholder="ej. 14350" inputmode="numeric" pattern="[0-9]*"></div>
-            <div><label>Kilometraje (km)</label><input type="number" id="wrKm" placeholder="si aplica" inputmode="numeric" pattern="[0-9]*"></div>
-          </div>
-          <div id="horoHistory" style="font-size:11px;color:var(--text3);margin-bottom:6px"></div>
-          <button class="btn btn-s btn-sm" onclick="saveHoro()">Actualizar</button>
-        </div>
+        
 
         <div class="card" id="linkedChkCard" style="display:none">
           <div class="card-t">✅ Checklist vinculado</div>
@@ -823,10 +824,17 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
     <div class="mt">➕ Nueva Orden de Mantenimiento</div>
     <div style="margin-bottom:12px"><div style="font-size:10px;color:var(--text3);margin-bottom:3px;font-weight:700;letter-spacing:.5px">FOLIO GENERADO</div><div class="fpreview" id="createFolio"></div></div>
     <div class="fr">
-      <div class="fg"><label>Equipo *</label><select id="cEq"></select></div>
+      <div class="fg" style="position:relative">
+      <label>Equipo *</label>
+      <input type="text" id="cEqSearch" placeholder="Escribe para filtrar: MG-15, GG-30..." 
+        oninput="filterEqOptions()" onfocus="showEqDropdown()" autocomplete="off"
+        style="width:100%">
+      <div id="cEqDropdown" style="display:none;position:absolute;z-index:300;background:#fff;border:1px solid var(--border);border-radius:var(--radius-sm);width:100%;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15);top:100%"></div>
+      <input type="hidden" id="cEq">
+    </div>
       <div class="fg"><label>Tipo *</label><select id="cTp"><option>Correctivo</option><option>Preventivo</option></select></div>
     </div>
-    <div class="fg"><label>Reporte de falla / descripción *</label><textarea id="cRep" rows="3" placeholder="Describe el problema o trabajo a realizar..."></textarea></div>
+    <div class="fg"><label>Reporte de falla / descripción *</label><textarea id="cRep" rows="3" style="font-size:14px" placeholder="Describe el problema o trabajo a realizar..."></textarea></div>
     <div class="fr">
       <div class="fg"><label>Detectado en</label><select id="cDet"><option>Proyecto</option><option>Auditoría</option><option>Mantenimiento previo</option><option>Asignación</option><option>Operador</option><option>Inspección rutinaria</option></select></div>
       <div class="fg"><label>Técnico asignado *</label><select id="cTec"></select></div>
@@ -1574,12 +1582,15 @@ function renderRef() {
     document.getElementById('costoTotal').textContent='$0.00';
     return;
   }
-  tb.innerHTML = o.refacciones.map((r,i)=>`<tr>
+  tb.innerHTML = o.refacciones.map((r,i)=>`<tr id="refRow_${i}">
     <td>${r.nombre}</td><td>${r.cant}</td>
     <td style="font-family:monospace;font-size:11px">${r.codigo||'—'}</td>
     <td>${r.proveedor||'—'}</td>
     <td>$${parseFloat(r.costo||0).toFixed(2)}</td>
-    <td><button class="del-btn" onclick="delRef(${i})">×</button></td>
+    <td style="white-space:nowrap">
+      <button class="del-btn" style="margin-right:4px" onclick="editRef(${i})" title="Editar">✏️</button>
+      <button class="del-btn" onclick="delRef(${i})" title="Eliminar">×</button>
+    </td>
   </tr>`).join('');
   const total = o.refacciones.reduce((a,r)=>a+parseFloat(r.costo||0)*parseInt(r.cant||1),0);
   document.getElementById('costoTotal').textContent = `$${total.toFixed(2)}`;
@@ -1602,7 +1613,13 @@ function resumeOrder() {
   sv(); renderWR(); _autoSync();
 }
 function closeOrder() {
-  if(!confirm('¿Terminaste el trabajo? \n\nSe abrirá el checklist de liberación.\nUna vez cerrado, solo el Jefe de Taller puede editar.')) return;
+  // Check if checklist already done
+  const existingChk = checklists.find(c => c.linkedFolio === currentOrder.folio || c.folio === currentOrder.linkedChk);
+  if(existingChk) {
+    if(!confirm('¿Cerrar definitivamente esta orden?\n\nEl checklist ya fue completado.\nUna vez cerrado, solo el Jefe de Taller puede editar.')) return;
+  } else {
+    if(!confirm('¿Terminaste el trabajo?\n\nSe abrirá el checklist de liberación.\nNO podrás cerrar la orden sin completar el checklist primero.')) return;
+  }
   // Ask about overtime
   const extra = prompt('¿Hubo tiempo extra fuera de jornada?\n\nEscribe una nota (ej: "Se quedó 3 hrs por pieza de emergencia")\nO deja vacío si no hubo tiempo extra:');
   if(extra && extra.trim()) {
@@ -2304,11 +2321,11 @@ function genBitacoraPDF(){
       doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
       ordList.forEach((o,ri)=>{
         const bitTxt=o.bitacora&&o.bitacora.length
-          ?o.bitacora.filter(b=>!b.sistema).map(b=>clean(b.autor)+': '+clean(b.text)).join(' | ')
+          ?o.bitacora.filter(b=>!b.sistema).map(b=>clean(b.autor)+': '+clean(b.text)).join('\n')
           :'';
-        const fullTxt=clean(o.reporte||'')+(bitTxt?' | '+bitTxt:'');
+        const fullTxt=clean(o.reporte||'')+(bitTxt?'\n'+bitTxt:'');
         const lines=doc.splitTextToSize(fullTxt,W-2*m-96);
-        const rowH=Math.max(7,lines.length*4+4);
+        const rowH=Math.max(7,lines.length*5+6);
         if(y+rowH>196){doc.addPage();y=15;}
         if(ri%2===0){doc.setFillColor(248,249,252);doc.rect(m,y,W-2*m,rowH,'F');}
         doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(13,43,94);
@@ -3582,6 +3599,65 @@ function openNewReqModal() {
   }
   document.getElementById('rqFechaEnvio').value = new Date().toISOString().slice(0,10);
   openM('mNewReq');
+}
+
+
+function filterEqOptions() {
+  const q = (document.getElementById('cEqSearch')?.value||'').toLowerCase();
+  showEqDropdown(q);
+}
+
+function showEqDropdown(q) {
+  const dd = document.getElementById('cEqDropdown');
+  if(!dd) return;
+  const filtered = q 
+    ? EQUIPOS.filter(e => e.id.toLowerCase().includes(q) || e.tipo.toLowerCase().includes(q) || e.marca.toLowerCase().includes(q))
+    : EQUIPOS;
+  if(!filtered.length) {
+    dd.innerHTML = '<div style="padding:10px;color:var(--text3);font-size:12px">Sin resultados</div>';
+    dd.style.display = 'block';
+    return;
+  }
+  dd.innerHTML = filtered.map(e => `
+    <div style="padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
+      onmousedown="selectEq('${e.id}','${e.tipo} · ${e.marca}')"
+      style="padding:9px 12px;cursor:pointer;font-size:13px">
+      <span style="font-weight:700">${e.id}</span>
+      <span style="color:var(--text2);font-size:11px"> · ${e.tipo} · ${e.marca}</span>
+    </div>`).join('');
+  dd.style.display = 'block';
+}
+
+function selectEq(id, label) {
+  document.getElementById('cEq').value = id;
+  document.getElementById('cEqSearch').value = id + ' · ' + label;
+  document.getElementById('cEqDropdown').style.display = 'none';
+  updateFolioPreview();
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', e => {
+  if(!e.target.closest || (!e.target.closest('#cEqSearch') && !e.target.closest('#cEqDropdown'))) {
+    const dd = document.getElementById('cEqDropdown');
+    if(dd) dd.style.display = 'none';
+  }
+});
+
+
+function editRef(i) {
+  const r = currentOrder.refacciones[i];
+  if(!r) return;
+  // Fill form with existing values
+  document.getElementById('rNom').value = r.nombre || '';
+  document.getElementById('rCnt').value = r.cant || 1;
+  document.getElementById('rCod').value = r.codigo || '';
+  document.getElementById('rProv').value = r.proveedor || '';
+  document.getElementById('rCosto').value = r.costo || 0;
+  // Remove from list (will be re-added when user clicks +)
+  currentOrder.refacciones.splice(i, 1);
+  sv(); renderRef();
+  // Focus name field
+  document.getElementById('rNom').focus();
 }
 
 // INIT
