@@ -2806,10 +2806,15 @@ async function syncFromSheets() {
     const ok = await loadFromSupabase();
     if(ok) {
       setSyncStatus('Datos importados correctamente','ok');
+      sheetsLog('Datos cargados desde Supabase ✓','ok');
       hideLoader();
+      updateSyncBadge();
       return;
     }
-  } catch(e) { console.log('Supabase load failed:', e.message); }
+  } catch(e) {
+    console.log('Supabase load failed:', e.message);
+    hideLoader();
+  }
   // Fallback to Sheets
   try {
     const r = await fetchWithRetry(scriptUrl + '?action=read', {method:'GET'}, 3, 1000);
@@ -3928,7 +3933,9 @@ initOffline();
 registerSW();
 updateSyncBadge();
 setTimeout(loadFromSheetsOnStartup, 800);
-setTimeout(startRealtimeSync, 3000); // Delay to let UI render first
+setTimeout(startRealtimeSync, 3000);
+// Safety: ensure loader never stays on permanently
+setTimeout(() => { if(document.getElementById('globalLoader')?.style.display !== 'none') hideLoader(); }, 8000); // Delay to let UI render first
 
 
 function _autoSync() {
