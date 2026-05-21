@@ -1212,7 +1212,7 @@ function calcWorkHours(startISO, endISO, pauseMs) {
 }
 
 function renderDash() {
-  const t=orders.length;
+  const t=orders.filter(o=>!o.deleted).length;
   const a=orders.filter(o=>o.status==='En Proceso').length;
   const corr=orders.filter(o=>o.tipo==='Correctivo').length;
   const prev=orders.filter(o=>o.tipo==='Preventivo').length;
@@ -1439,9 +1439,9 @@ function selectTech(id) {
 }
 
 function renderMechView() {
-  const proc = orders.filter(o => o.tecnico===currentTech.name && o.status==='En Proceso');
-  const pend = orders.filter(o => o.tecnico===currentTech.name && ['Pendiente','Pospuesto','Pausa Refacción'].includes(o.status));
-  const hist = orders.filter(o => o.tecnico===currentTech.name && o.status==='Cerrado').sort((a,b)=>new Date(b.closedAt)-new Date(a.closedAt));
+  const proc = orders.filter(o => !o.deleted && o.tecnico===currentTech.name && o.status==='En Proceso');
+  const pend = orders.filter(o => !o.deleted && o.tecnico===currentTech.name && ['Pendiente','Pospuesto','Pausa Refacción'].includes(o.status));
+  const hist = orders.filter(o => !o.deleted && o.tecnico===currentTech.name && o.status==='Cerrado').sort((a,b)=>new Date(b.closedAt)-new Date(a.closedAt));
   document.getElementById('mvActive').innerHTML = proc.length ? proc.map(o=>oCard(o,true)).join('') : empty('Sin registros en proceso');
   document.getElementById('mvPend').innerHTML = pend.length ? pend.map(o=>oCard(o,false)).join('') : empty('Sin pendientes');
   document.getElementById('mvHist').innerHTML = hist.length ? hist.map(o=>`
@@ -1712,7 +1712,13 @@ function confirmPause() {
 function openDel(id) { delTargetId=id; document.getElementById('delPass').value=''; document.getElementById('delErr').style.display='none'; openM('mDel'); }
 function confirmDel() {
   if(document.getElementById('delPass').value!==PASS){document.getElementById('delErr').style.display='block';return;}
-  orders=orders.filter(o=>o.id!==delTargetId); sv(); closeM('mDel'); renderJefeDash();
+  // Soft delete: mark as deleted instead of removing
+  const idx = orders.findIndex(o=>o.id===delTargetId);
+  if(idx>=0) {
+    orders[idx].deleted = true;
+    orders[idx].deletedAt = new Date().toISOString();
+  }
+  sv(); _autoSync(); closeM('mDel'); renderJefeDash();
 }
 
 // CREATE
@@ -3395,7 +3401,7 @@ function checkAlerts() {
   const DAY = 86400000;
 
   // Órdenes críticas activas
-  const criticas = orders.filter(o =>
+  const criticas = orders.filter(o => !o.deleted &&
     o.prioridad === 'Critico' &&
     !['Cerrado','Cerrado - Checklist'].includes(o.status)
   );
@@ -3481,6 +3487,7 @@ function saveReq() {
   saveReqs(reqs);
   closeM('mNewReq');
   renderReqScreen();
+  _autoSync();
   ['rqNum','rqDesc','rqNotas'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
 }
 
@@ -3692,7 +3699,11 @@ function _autoSync() {
   const scriptUrl = loadScriptUrl();
   if(!scriptUrl) return;
   setTimeout(async ()=>{
-    try { await syncToSheets('all'); } catch(e){}
+    try {
+      await syncToSheets('all');
+      localStorage.setItem('seil_last_sync', new Date().toISOString());
+      updateSyncBadge();
+    } catch(e){}
   }, 800);
 }
 
