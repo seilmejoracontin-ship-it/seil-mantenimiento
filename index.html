@@ -1109,8 +1109,27 @@ function getChkTemplate(eqId) {
 // STORAGE
 // ════════════════════════════════════════════════
 function sv() {
-  localStorage.setItem('seil_v3_orders', JSON.stringify(orders));
-  localStorage.setItem('seil_v3_chks', JSON.stringify(checklists));
+  try {
+    // Strip any accidental b64 data before saving
+    const cleanOrders = orders.map(o => {
+      const c = {...o};
+      if(c.bitacora) c.bitacora = c.bitacora.map(b => {
+        const cb = {...b};
+        if(cb.text && cb.text.length > 10000) cb.text = cb.text.substring(0, 500) + '...[truncado]';
+        return cb;
+      });
+      return c;
+    });
+    localStorage.setItem('seil_v3_orders', JSON.stringify(cleanOrders));
+    localStorage.setItem('seil_v3_chks', JSON.stringify(checklists));
+  } catch(e) {
+    if(e.name === 'QuotaExceededError') {
+      console.error('localStorage lleno - limpiando datos antiguos');
+      // Keep only last 50 orders
+      const recent = orders.slice(-50);
+      try { localStorage.setItem('seil_v3_orders', JSON.stringify(recent)); } catch(e2){}
+    }
+  }
 }
 function ld() {
   const o = localStorage.getItem('seil_v3_orders');
@@ -3866,6 +3885,52 @@ function registerSW(){
   const swCode=`const CACHE='seil-v31';const ASSETS=['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'];self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)));self.skipWaiting();});self.addEventListener('activate',e=>{e.waitUntil(clients.claim());});self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res.ok){const rc=res.clone();caches.open(CACHE).then(c=>c.put(e.request,rc));}return res;}).catch(()=>caches.match(e.request))));});`;
   try{const blob=new Blob([swCode],{type:'application/javascript'});navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});}catch(e){}
 }
+
+
+
+// ════════════════════════════════════════════════
+// INIT — App startup
+// ════════════════════════════════════════════════
+(function init() {
+  // 1. Load from localStorage immediately (fast, offline)
+  const raw = localStorage.getItem('seil_v3_orders');
+  const rawC = localStorage.getItem('seil_v3_chks');
+  if(raw) { try { orders = JSON.parse(raw); } catch(e){} }
+  if(rawC) { try { checklists = JSON.parse(rawC); } catch(e){} }
+
+  // 2. Render with local data
+  renderHomeStats();
+  checkUrgent();
+  checkAlerts();
+  initOffline();
+  registerSW();
+  updateSyncBadge();
+
+  // 3. Always sync from Sheets on startup (background, updates local data)
+  setTimeout(async () => {
+    const scriptUrl = loadScriptUrl();
+    if(!scriptUrl) return;
+    try {
+      const r = await fetchWithRetry(scriptUrl + '?action=read', {method:'GET'}, 3, 1000);
+      if(!r.ok) return;
+      const d = await r.json();
+      if(d.error) return;
+      const rawO = d.orders||d.ordenes||[];
+      const rawC2 = d.checklists||[];
+      let changed = false;
+      if(rawO.length) { orders = rawO.map(mapOrderFromSheet).filter(o=>o.folio); changed = true; }
+      if(rawC2.length) { checklists = rawC2.map(mapChkFromSheet).filter(c=>c.folio); changed = true; }
+      if(changed) {
+        sv();
+        renderHomeStats();
+        checkUrgent();
+        checkAlerts();
+        updateSyncBadge();
+        localStorage.setItem('seil_last_sync', new Date().toISOString());
+      }
+    } catch(e) { console.log('Startup sync failed:', e.message); }
+  }, 1200);
+})();
 
 </script>
 
