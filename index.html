@@ -3481,7 +3481,6 @@ function saveReq() {
   saveReqs(reqs);
   closeM('mNewReq');
   renderReqScreen();
-  _autoSync();
   ['rqNum','rqDesc','rqNotas'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
 }
 
@@ -3692,17 +3691,8 @@ function editRef(i) {
 function _autoSync() {
   const scriptUrl = loadScriptUrl();
   if(!scriptUrl) return;
-  // Show syncing indicator
-  setSyncStatus('Sincronizando...', 'syncing');
   setTimeout(async ()=>{
-    try {
-      await syncToSheets('all');
-      setSyncStatus('Sincronizado ✓', 'ok');
-      localStorage.setItem('seil_last_sync', new Date().toISOString());
-      updateSyncBadge();
-    } catch(e){
-      setSyncStatus('Sin conexión — datos guardados', 'err');
-    }
+    try { await syncToSheets('all'); } catch(e){}
   }, 800);
 }
 
@@ -3915,30 +3905,6 @@ function registerSW(){
   initOffline();
   registerSW();
   updateSyncBadge();
-
-  // 4. Periodic refresh every 30 seconds to pick up changes from other devices
-  setInterval(async () => {
-    // Only refresh if app is visible and not actively being used
-    if(document.hidden) return;
-    const scriptUrl = loadScriptUrl();
-    if(!scriptUrl) return;
-    try {
-      const r = await fetch(scriptUrl + '?action=read', {method:'GET'});
-      if(!r.ok) return;
-      const d = await r.json();
-      if(d.error) return;
-      const rawO = d.orders||d.ordenes||[];
-      const rawC2 = d.checklists||[];
-      if(rawO.length || rawC2.length) {
-        if(rawO.length) orders = rawO.map(mapOrderFromSheet).filter(o=>o.folio);
-        if(rawC2.length) checklists = rawC2.map(mapChkFromSheet).filter(c=>c.folio);
-        sv();
-        renderHomeStats();
-        checkUrgent();
-        checkAlerts();
-      }
-    } catch(e) {}
-  }, 30000);
 
   // 3. Load from Sheets on startup - Sheets is source of truth
   setTimeout(async () => {
