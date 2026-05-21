@@ -2819,16 +2819,16 @@ async function syncFromSheets() {
     if(d.error){ sheetsLog('Error: '+d.error,'err'); setSyncStatus('Error','err'); return; }
     let changed = false;
     if(d.orders && Array.isArray(d.orders) && d.orders.length){
-      orders = rawOrders.map(mapOrderFromSheet).filter(o=>o.folio);
+      orders = d.orders.map(mapOrderFromSheet).filter(o=>o.folio);
       changed = true;
       sheetsLog('Órdenes importadas: '+orders.length,'ok');
     }
     if(d.checklists && Array.isArray(d.checklists) && d.checklists.length){
-      checklists = rawChks.map(mapChkFromSheet).filter(c=>c.folio);
+      checklists = d.checklists.map(mapChkFromSheet).filter(c=>c.folio);
       changed = true;
       sheetsLog('Checklists importados: '+checklists.length,'ok');
     }
-    if(changed){ sv(); renderHomeStats(); checkUrgent(); }
+    if(changed){ sv(); renderHomeStats(); checkUrgent(); checkAlerts(); }
     setSyncStatus('Datos importados correctamente','ok');
     localStorage.setItem('seil_last_sync', new Date().toISOString());
     updateSyncBadge();
@@ -3906,7 +3906,7 @@ function registerSW(){
   registerSW();
   updateSyncBadge();
 
-  // 3. Always sync from Sheets on startup (background, updates local data)
+  // 3. Always sync from Sheets on startup - merge remote+local data
   setTimeout(async () => {
     const scriptUrl = loadScriptUrl();
     if(!scriptUrl) return;
@@ -3918,8 +3918,21 @@ function registerSW(){
       const rawO = d.orders||d.ordenes||[];
       const rawC2 = d.checklists||[];
       let changed = false;
-      if(rawO.length) { orders = rawO.map(mapOrderFromSheet).filter(o=>o.folio); changed = true; }
-      if(rawC2.length) { checklists = rawC2.map(mapChkFromSheet).filter(c=>c.folio); changed = true; }
+      if(rawO.length) {
+        const remoteOrders = rawO.map(mapOrderFromSheet).filter(o=>o.folio);
+        // Merge: keep local orders not in remote, add remote orders
+        const remoteIds = new Set(remoteOrders.map(o=>o.id));
+        const localOnly = orders.filter(o => !remoteIds.has(o.id));
+        orders = [...remoteOrders, ...localOnly];
+        changed = true;
+      }
+      if(rawC2.length) {
+        const remoteChks = rawC2.map(mapChkFromSheet).filter(c=>c.folio);
+        const remoteChkIds = new Set(remoteChks.map(c=>c.id));
+        const localOnlyChks = checklists.filter(c => !remoteChkIds.has(c.id));
+        checklists = [...remoteChks, ...localOnlyChks];
+        changed = true;
+      }
       if(changed) {
         sv();
         renderHomeStats();
@@ -3928,6 +3941,8 @@ function registerSW(){
         updateSyncBadge();
         localStorage.setItem('seil_last_sync', new Date().toISOString());
       }
+      // Push local-only records to Sheets so they're available everywhere
+      setTimeout(() => { try { syncToSheets('all'); } catch(e){} }, 2000);
     } catch(e) { console.log('Startup sync failed:', e.message); }
   }, 1200);
 })();
