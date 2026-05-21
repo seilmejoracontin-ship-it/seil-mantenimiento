@@ -1621,6 +1621,7 @@ function startOrder() {
   currentOrder.bitacora=currentOrder.bitacora||[];
   currentOrder.bitacora.push({ts:new Date().toISOString(),autor:currentTech?currentTech.name:'Sistema',text:'Trabajo iniciado',sistema:true});
   sv(); renderWR();
+  syncSingleOrder(currentOrder);
   _autoSync();
 }
 function resumeOrder() {
@@ -1651,7 +1652,9 @@ function closeOrder() {
     });
   }
   currentOrder.status='Cerrado - Checklist'; currentOrder.closedAt=new Date().toISOString();
-  sv(); renderWR(); _autoSync();
+  sv(); renderWR();
+  syncSingleOrder(currentOrder);
+  _autoSync();
 }
 function openCloseChk() {
   const tmpl=getChkTemplate(currentOrder.equipo);
@@ -1667,6 +1670,7 @@ function addBit() {
   currentOrder.bitacora=currentOrder.bitacora||[];
   currentOrder.bitacora.push({ts:new Date().toISOString(),autor:currentTech?currentTech.name:'Técnico',text:txt});
   document.getElementById('wrEntry').value=''; sv(); renderBit();
+  syncSingleOrder(currentOrder);
   _autoSync();
 }
 function saveDraft() { sv(); alert('Borrador guardado ✓'); }
@@ -1743,7 +1747,10 @@ function createOrder() {
     startedAt:null,closedAt:null,pausedAt:null,
     pospReason:'',pauseReason:'',totalPauseMs:0,
     bitacora:[],refacciones:[],comentarios:'',horoHistory:[],linkedChk:null};
-  orders.push(o); sv(); closeM('mCreate'); renderJefeDash();
+  orders.push(o); sv(); 
+  syncSingleOrder(o);
+  _autoSync();
+  closeM('mCreate'); renderJefeDash();
 }
 
 // ════════════════════════════════════════════════
@@ -2584,7 +2591,7 @@ async function writeSheet(sheetName, rows) {
         method: 'GET',
         mode: 'no-cors'
       });
-      await new Promise(r=>setTimeout(r,1000));
+      await new Promise(r=>setTimeout(r,300));
     }
     sheetsLog(`${sheetName}: ${rows.length-1} registros escritos ✓`,'ok');
     return true;
@@ -3694,6 +3701,37 @@ function editRef(i) {
 // ════════════════════════════════════════════════
 // SUPABASE CONFIG
 // ════════════════════════════════════════════════
+
+
+async function syncSingleOrder(order) {
+  // Send just this one order to Sheets - much faster than syncing all
+  const scriptUrl = loadScriptUrl();
+  if(!scriptUrl || !order) return;
+  try {
+    const bitTxt = (order.bitacora||[]).filter(b=>!b.sistema)
+      .map(b=>(b.autor||'')+': '+(b.text||'')).join(' | ');
+    const refTxt = (order.refacciones||[])
+      .map(r=>(r.nombre||'')+(r.cant?' x'+r.cant:'')+(r.codigo?' ['+r.codigo+']':'')).join('; ');
+    const row = [
+      order.folio||'', order.equipo||'', order.tipo||'', order.status||'',
+      order.tecnico||'', order.prioridad||'Normal', order.detectado||'',
+      order.horometro||'', order.km||'', order.createdAt||'',
+      order.startedAt||'', order.closedAt||'', '', '', '',
+      order.costo||0, refTxt, bitTxt, order.reporte||'',
+      order.notas||'', order.comentarios||'', order.driveUrl||''
+    ];
+    const payload = {
+      sheet: 'Ordenes',
+      folio: order.folio,
+      row: row,
+      upsert: true  // Apps Script will update existing row or append
+    };
+    const encoded = encodeURIComponent(JSON.stringify(payload));
+    await fetch(scriptUrl + '?data=' + encoded, {
+      method: 'GET', mode: 'no-cors'
+    });
+  } catch(e) { console.log('syncSingleOrder failed:', e.message); }
+}
 
 function _autoSync() {
   const scriptUrl = loadScriptUrl();
