@@ -839,12 +839,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
       <div class="fg"><label>Detectado en</label><select id="cDet"><option>Proyecto</option><option>Auditoría</option><option>Mantenimiento previo</option><option>Asignación</option><option>Operador</option><option>Inspección rutinaria</option></select></div>
       <div class="fg"><label>Técnico asignado *</label><select id="cTec"></select></div>
     </div>
-    <div class="fr3">
-      <div class="fg"><label>Prioridad</label><select id="cPri"><option value="Critico">🔴 Crítico — equipo parado</option><option value="Alta">Alta — 1 día</option><option value="Media">Media — 2 días</option><option value="Normal" selected>Normal — 3-5 días</option><option value="Baja">Baja</option></select></div>
-      <div class="fg"><label>Horómetro (hrs)</label><input type="number" id="cHoro" placeholder="ej. 14350"></div>
-      <div class="fg"><label>Kilometraje (km)</label><input type="number" id="cKm" placeholder="si aplica"></div>
-    </div>
-    <div class="fg"><label>Notas / instrucciones para el técnico</label><textarea id="cNot" rows="2" placeholder="Info adicional..."></textarea></div>
+    <div class="fg"><label>Prioridad</label><select id="cPri"><option value="Critico">🔴 Crítico — equipo parado</option><option value="Alta">Alta — 1 día</option><option value="Media">Media — 2 días</option><option value="Normal" selected>Normal — 3-5 días</option><option value="Baja">Baja</option></select></div>
     <div class="mfooter">
       <button class="btn btn-s" onclick="closeM('mCreate')">Cancelar</button>
       <button class="btn btn-d btn-sm" onclick="closeM('mCreate')">✕ No crear</button>
@@ -1740,9 +1735,9 @@ function createOrder() {
     detectado:document.getElementById('cDet').value,
     tecnico:document.getElementById('cTec').value,
     prioridad:document.getElementById('cPri').value,
-    horometro:document.getElementById('cHoro').value||'—',
-    km:document.getElementById('cKm').value||'',
-    notas:document.getElementById('cNot').value.trim(),
+    horometro:'—',
+    km:'',
+    notas:'',
     status:'Pendiente',createdAt:new Date().toISOString(),
     startedAt:null,closedAt:null,pausedAt:null,
     pospReason:'',pauseReason:'',totalPauseMs:0,
@@ -2316,23 +2311,23 @@ function genBitacoraPDF(){
         });
         const obsText=obsArr.join('; ');
         const obsLines=doc.splitTextToSize(obsText||'—',W-2*m-146);
-        const rowH=Math.max(7,obsLines.length*4+4);
+        const rowH=Math.max(8,obsLines.length*5.5+4);
         if(y+rowH>196){doc.addPage();y=15;}
         if(ri%2===0){doc.setFillColor(248,249,252);doc.rect(m,y,W-2*m,rowH,'F');}
         doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(192,57,43);
-        doc.text(c.folio,cols[0]+1,y+4);
+        doc.text(c.folio,cols[0]+1,y+5);
         doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
-        doc.text(c.equipId,cols[1]+1,y+4);
-        doc.text(clean(c.type||''),cols[2]+1,y+4);
-        doc.text(fmtD(c.date),cols[3]+1,y+4);
-        doc.text(c.horo?String(c.horo):'—',cols[4]+1,y+4);
+        doc.text(c.equipId,cols[1]+1,y+5);
+        doc.text(clean(c.type||''),cols[2]+1,y+5);
+        doc.text(fmtD(c.date),cols[3]+1,y+5);
+        doc.text(c.horo?String(c.horo):'—',cols[4]+1,y+5);
         const oks=Object.values(c.items||{}).filter(v=>v==='ok').length;
         const fails=Object.values(c.items||{}).filter(v=>v==='fail').length;
-        doc.setTextColor(22,120,74);doc.text(String(oks),cols[5]+1,y+4);
+        doc.setTextColor(22,120,74);doc.text(String(oks),cols[5]+1,y+5);
         doc.setTextColor(fails>0?192:30,fails>0?57:30,fails>0?43:30);
-        doc.text(String(fails),cols[6]+1,y+4);
+        doc.text(String(fails),cols[6]+1,y+5);
         doc.setTextColor(30,30,30);doc.setFontSize(9);
-        obsLines.forEach((l,li)=>doc.text(l,m+146,y+4+(li*4)));
+        obsLines.forEach((l,li)=>doc.text(l,m+146,y+5+(li*5.5)));
         doc.setDrawColor(220,220,220);doc.rect(m,y,W-2*m,rowH,'S');
         y+=rowH;
       });
@@ -2357,17 +2352,17 @@ function genBitacoraPDF(){
           :'';
         const fullTxt=clean(o.reporte||'')+(bitTxt?'\n'+bitTxt:'');
         const lines=doc.splitTextToSize(fullTxt,W-2*m-96);
-        const rowH=Math.max(7,lines.length*5+6);
+        const rowH=Math.max(8,lines.length*5.5+6);
         if(y+rowH>196){doc.addPage();y=15;}
         if(ri%2===0){doc.setFillColor(248,249,252);doc.rect(m,y,W-2*m,rowH,'F');}
         doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(13,43,94);
-        doc.text(o.folio,m+1,y+4);
+        doc.text(o.folio,m+1,y+5);
         doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
-        doc.text(clean(o.tipo||''),m+24+1,y+4);
-        doc.text(fmtD(o.createdAt),m+44+1,y+4);
-        doc.text(clean(o.tecnico.split(' ')[0]),m+64+1,y+4);
-        doc.text(o.horometro&&o.horometro!=='—'?String(o.horometro):'—',m+84+1,y+4);
-        lines.forEach((l,li)=>doc.text(l,m+96+1,y+4+(li*4)));
+        doc.text(clean(o.tipo||''),m+24+1,y+5);
+        doc.text(fmtD(o.createdAt),m+44+1,y+5);
+        doc.text(clean(o.tecnico.split(' ')[0]),m+64+1,y+5);
+        doc.text(o.horometro&&o.horometro!=='—'?String(o.horometro):'—',m+84+1,y+5);
+        lines.forEach((l,li)=>doc.text(l,m+96+1,y+5+(li*5.5)));
         doc.setDrawColor(220,220,220);doc.rect(m,y,W-2*m,rowH,'S');
         y+=rowH;
       });
