@@ -384,9 +384,15 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   .hdr-logo { width: 28px; height: 28px; }
   .phdr { padding: 10px 12px; flex-wrap: wrap; gap: 6px; }
   .ptitle { font-size: 15px; }
-  .home-wrap { padding: 16px 12px; }
+  .home-wrap { grid-template-columns: 1fr !important; min-height: unset; }
+  .home-right { display: none !important; }
+  .home-left { padding: 24px 16px; justify-content: flex-start; }
   .home-btns { grid-template-columns: 1fr 1fr; gap: 10px; }
   .hbtn { padding: 14px 10px; }
+  .tech-grid { grid-template-columns: repeat(2,1fr) !important; padding: 14px; gap: 10px; }
+  .fr  { grid-template-columns: 1fr !important; gap: 0 !important; }
+  .fr3 { grid-template-columns: 1fr !important; gap: 0 !important; }
+  .chk-item { grid-template-columns: 1fr auto 130px; gap: 5px; }
   .wr-cols { flex-direction: column !important; }
   .wr-left, .wr-right { width: 100% !important; }
   .tbl { font-size: 12px; }
@@ -418,6 +424,8 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   .hbtn { padding: 16px 12px; }
   .wr-cols { flex-direction: column !important; }
   .wr-left, .wr-right { width: 100% !important; min-width: 0 !important; }
+  /* Work record: apilar columnas */
+  #wrLayout { grid-template-columns: 1fr !important; }
   .wrActions-wrap { position: sticky; bottom: 0; background: var(--bg); padding: 10px; border-top: 1px solid var(--border); z-index: 10; }
   #wrActions .btn { width: 100%; margin-bottom: 6px; min-height: 48px; font-size: 15px; }
   .tbl { font-size: 12px; }
@@ -425,6 +433,10 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   .ref-tbl th, .ref-tbl td { padding: 5px 6px; font-size: 11px; }
   .mbox { max-height: 90vh; overflow-y: auto; }
   .photo-grid { grid-template-columns: repeat(3, 1fr); }
+  /* Refacciones row: apilar en móvil */
+  #workRecord .card > div[style*="grid-template-columns:2fr"] {
+    grid-template-columns: 1fr 60px !important;
+  }
 }
 
 </style>
@@ -600,7 +612,7 @@ hr{border:none;border-top:1px solid var(--border);margin:16px 0}
   </div>
   <div class="ca">
     <div class="locked-msg" id="lockedMsg" style="display:none">🔒 Inicia el trabajo para escribir en la bitácora y registrar refacciones.</div>
-    <div class="g2" style="gap:18px">
+    <div class="g2" id="wrLayout" style="gap:18px">
       <!-- LEFT -->
       <div>
         <div class="card" style="margin-bottom:12px">
@@ -2618,7 +2630,7 @@ async function syncToSheets(what) {
   if(what==='all'||what==='orders') {
     await ensureSheet('Ordenes');
     const rows = [
-      ['Folio','Equipo','Tipo','Estado','Tecnico','Prioridad','Detectado','Horometro','Km',
+      ['id','Folio','Equipo','Tipo','Estado','Tecnico','Prioridad','Detectado','Horometro','Km',
        'FechaCreacion','FechaInicio','FechaCierre','T_Respuesta_hrs','T_Trabajo_hrs','T_Muerto_hrs',
        'Costo','Refacciones','Reporte','Bitacora','Comentarios','LinkedChecklist']
     ];
@@ -2628,7 +2640,7 @@ async function syncToSheets(what) {
       const tMuerto = o.totalPauseMs?(o.totalPauseMs/3600000).toFixed(2):'';
       const refs = (o.refacciones||[]).map(r=>r.nombre+' x'+r.cant+(r.proveedor?' ('+r.proveedor+')':'')).join(' | ');
       const bit = (o.bitacora||[]).filter(b=>!b.sistema).map(b=>fmtD(b.ts)+' '+b.autor+': '+b.text).join(' || ');
-      rows.push([o.folio,o.equipo,o.tipo,o.status,o.tecnico,o.prioridad,o.detectado||'',
+      rows.push([o.id||o.folio, o.folio,o.equipo,o.tipo,o.status,o.tecnico,o.prioridad,o.detectado||'',
         o.horometro||'',o.km||'',o.createdAt||'',o.startedAt||'',o.closedAt||'',
         tResp,tWork,tMuerto,o.costo||0,refs,o.reporte||'',bit,o.comentarios||'',o.linkedChk||'']);
     });
@@ -2739,7 +2751,7 @@ function openOrderReadOnly(id) {
 function mapOrderFromSheet(row) {
   // Map Sheets column names back to system field names
   return {
-    id: String(row['id']||row['Id']||Date.now()),
+    id: String(row["id"]||row["Id"]||row["Folio"]||Date.now()),
     folio: row['Folio']||'',
     equipo: row['Equipo']||'',
     tipo: row['Tipo']||'Correctivo',
