@@ -2624,7 +2624,7 @@ async function syncToSheets(what) {
       const tResp = o.startedAt&&o.createdAt?((new Date(o.startedAt)-new Date(o.createdAt))/3600000).toFixed(2):'';
       const tWork = o.closedAt&&o.startedAt?((new Date(o.closedAt)-new Date(o.startedAt)-(o.totalPauseMs||0))/3600000).toFixed(2):'';
       const tMuerto = o.totalPauseMs?(o.totalPauseMs/3600000).toFixed(2):'';
-      const refs = (o.refacciones||[]).map(r=>r.nombre+' x'+r.cant+(r.proveedor?' ('+r.proveedor+')':'')).join(' | ');
+      const refs = (o.refacciones||[]).map(r=>r.nombre+' x'+r.cant+(r.codigo?' ['+r.codigo+']':'')+(r.proveedor?' ('+r.proveedor+')':'')).join(' | ');
       const bit = (o.bitacora||[]).filter(b=>!b.sistema).map(b=>fmtD(b.ts)+' '+b.autor+': '+b.text).join(' || ');
       rows.push([o.folio,o.equipo,o.tipo,o.status,o.tecnico,o.prioridad,o.detectado||'',
         o.horometro||'',o.km||'',o.createdAt||'',o.startedAt||'',o.closedAt||'',
@@ -2772,8 +2772,8 @@ function mapOrderFromSheet(row) {
         const r = row['Refacciones']||'';
         if(!r) return [];
         return r.split(' | ').map(s => {
-          const m = s.match(/^(.+?) x(\d+)(?:\s*\((.+?)\))?$/);
-          return m ? {nombre:m[1],cant:m[2],proveedor:m[3]||'',codigo:''} : {nombre:s,cant:1,proveedor:'',codigo:''};
+          const m = s.match(/^(.+?) x(\d+)(?:\s*\[([^\]]*)\])?(?:\s*\(([^)]*)\))?$/);
+          return m ? {nombre:m[1],cant:m[2],codigo:m[3]||'',proveedor:m[4]||''} : {nombre:s,cant:1,codigo:'',proveedor:''};
         }).filter(r=>r.nombre);
       } catch(e) { return []; }
     })()
@@ -2800,7 +2800,7 @@ function mapChkFromSheet(row) {
 
 async function loadFromSheetsOnStartup() {
   const scriptUrl = loadScriptUrl();
-  if(!scriptUrl || orders.length > 0) return;
+  if(!scriptUrl) return;
   try {
     const r = await fetchWithRetry(scriptUrl + '?action=read', {method:'GET'}, 3, 1000);
     if(!r.ok) return;
